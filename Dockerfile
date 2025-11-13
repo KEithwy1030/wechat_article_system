@@ -40,5 +40,11 @@ EXPOSE 8001
 # Zeabur 生产环境：使用 gunicorn（性能更好）
 # 设置 PYTHONPATH 确保模块导入正常
 ENV PYTHONPATH=/app
-CMD ["sh", "-c", "python -c 'from app_new import app; print(\"App imported successfully\")' && gunicorn --bind 0.0.0.0:${PORT:-8001} --workers 2 --threads 4 --timeout 120 --access-logfile - --error-logfile - --preload app_new:app"]
+
+# 验证关键文件存在
+RUN ls -la /app/app_new.py && \
+    python -c "from app_new import app; print('✅ App imported successfully')"
+
+# 启动命令 - 使用 shell 形式以支持环境变量
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-8001} --workers 2 --threads 4 --timeout 120 --access-logfile - --error-logfile - app_new:app"]
 
