@@ -17,6 +17,10 @@ openai>=1.0.0
 # 任务调度
 APScheduler>=3.7.0
 
+# 浏览器自动化
+selenium>=4.0.0
+webdriver-manager>=4.0.0
+
 # 其他工具
 email-validator>=2.2.0
 typing-extensions>=4.0.0 

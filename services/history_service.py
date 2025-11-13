@@ -308,6 +308,40 @@ class HistoryService:
         except Exception as e:
             logger.error(f"保存发布历史失败: {str(e)}")
     
+    def save_generation_record(self, title: str, content: str, ai_model: str, 
+                              word_count: int, metadata: Dict[str, Any]) -> bool:
+        """保存文章生成记录"""
+        try:
+            record = {
+                'id': self._generate_id(),
+                'title': title,
+                'content': content[:200] + '...' if len(content) > 200 else content,  # 只保存预览
+                'ai_model': ai_model,
+                'word_count': word_count,
+                'metadata': metadata,
+                'created_at': datetime.now().isoformat()
+            }
+            
+            # 加载现有历史记录
+            history = self._load_history()
+            
+            # 添加新记录
+            history.append(record)
+            
+            # 保持最近100条记录
+            if len(history) > 100:
+                history = history[-100:]
+            
+            # 保存历史记录
+            self._save_history(history)
+            
+            logger.info(f"保存文章生成记录成功: {title}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"保存文章生成记录失败: {e}")
+            return False
+    
     def _generate_id(self) -> str:
         """生成唯一ID"""
         return datetime.now().strftime('%Y%m%d%H%M%S') + str(hash(datetime.now().timestamp()))[-6:] 

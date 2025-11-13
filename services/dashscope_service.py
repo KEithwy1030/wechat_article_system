@@ -13,8 +13,35 @@ class DashScopeService:
     """阿里云百炼服务类"""
     
     def __init__(self, api_key: str = None):
-        self.api_key = api_key or os.getenv("DASHSCOPE_API_KEY")
+        # 优先使用传入的API密钥，然后尝试从配置文件读取，最后从环境变量读取
+        if api_key:
+            self.api_key = api_key
+        else:
+            # 尝试从配置文件读取
+            try:
+                from services.config_service import ConfigService
+                config_service = ConfigService()
+                config = config_service.load_config()
+                self.api_key = config.get('dashscope_api_key')
+            except Exception as e:
+                logger.warning(f"无法从配置文件读取DashScope API密钥: {e}")
+                self.api_key = None
+            
+            # 如果配置文件没有，尝试从环境变量读取
+            if not self.api_key:
+                self.api_key = os.getenv("DASHSCOPE_API_KEY")
+        
         self.base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+        self.client = None
+        self.model = "qwen-vl-plus"  # 默认模型
+    
+    def set_config(self, api_key: str = None, model: str = None):
+        """设置配置"""
+        if api_key:
+            self.api_key = api_key
+        if model:
+            self.model = model
+        # 重新创建客户端
         self.client = None
         
     def _get_client(self) -> Optional[OpenAI]:
@@ -297,7 +324,7 @@ class DashScopeService:
         try:
             char_limit = 20000
             if format_template:
-                prompt = f"{PromptManager.ROLE_PROMPT}\n请根据以下HTML格式模板，生成一篇关于‘{title}’的公众号文章，排版核心风格要与模板一致，字数约{word_count}字，且最终输出的HTML内容总字符数必须小于等于{char_limit}字符。模板如下：\n{format_template}"
+                prompt = f"{PromptManager.ROLE_PROMPT}\n请根据以下HTML格式模板，生成一篇关于'{title}'的公众号文章，排版核心风格要与模板一致，字数约{word_count}字，且最终输出的HTML内容总字符数必须小于等于{char_limit}字符。\n\n重要：文章标题《{title}》将由系统自动处理，请直接输出文章正文内容，不要重复标题。\n\n模板如下：\n{format_template}"
             else:
                 prompt = PromptManager.article_prompt(title, word_count, char_limit)
             
@@ -428,4 +455,99 @@ class DashScopeService:
                     "error": str(e),
                     "error_type": type(e).__name__
                 }
-            } 
+            }
+    
+    def analyze_image(self, image_data: str, prompt: str) -> Dict:
+        """分析图片内容"""
+        try:
+            if not self.api_key:
+                return {
+                    "success": False,
+                    "message": "API密钥未配置",
+                    "content": ""
+                }
+            
+            client = self._get_client()
+            if not client:
+                return {
+                    "success": False,
+                    "message": "无法创建客户端",
+                    "content": ""
+                }
+            
+            # 检查image_data是否为Base64格式
+            import base64
+            try:
+                # 尝试解码验证是否为有效的Base64
+                if isinstance(image_data, str):
+                    # 如果已经是Base64格式，直接使用
+                    base64.b64decode(image_data, validate=True)
+                else:
+                    return {
+                        "success": False,
+                        "message": "图片数据格式错误",
+                        "content": ""
+                    }
+            except Exception:
+                return {
+                    "success": False,
+                    "message": "图片数据不是有效的Base64格式",
+                    "content": ""
+                }
+            
+            # 构建请求消息
+            messages = [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": prompt
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/png;base64,{image_data}"
+                            }
+                        }
+                    ]
+                }
+            ]
+            
+            # 调用阿里云多模态模型
+            response = client.chat.completions.create(
+                model=self.model,  # 使用配置的模型
+                messages=messages,
+                max_tokens=4000,
+                temperature=0.1
+            )
+            
+            if response and response.choices:
+                content = response.choices[0].message.content
+                return {
+                    "success": True,
+                    "message": "图片分析成功",
+                    "content": content,
+                    "usage": {
+                        "prompt_tokens": response.usage.prompt_tokens if response.usage else 0,
+                        "completion_tokens": response.usage.completion_tokens if response.usage else 0,
+                        "total_tokens": response.usage.total_tokens if response.usage else 0
+                    }
+                }
+            else:
+                return {
+                    "success": False,
+                    "message": "API返回空结果",
+                    "content": ""
+                }
+                
+        except Exception as e:
+            logger.error(f"图片分析失败: {str(e)}")
+            return {
+                "success": False,
+                "message": f"图片分析失败: {str(e)}",
+                "content": ""
+            }
+
+# 创建全局服务实例
+dashscope_service = DashScopeService() 

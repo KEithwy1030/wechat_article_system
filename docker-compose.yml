@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  wechatbot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: wechatbot-app
+    ports:
+      - "8001:8001"
+    env_file:
+      - .env  # 从 .env 文件加载环境变量（如果存在）
+    environment:
+      - PORT=8001
+      # 从 .env 文件或环境变量中读取 API Keys（优先级：环境变量 > .env 文件）
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY:-}
+      - ZHIPU_API_KEY=${ZHIPU_API_KEY:-}
+      - WECHAT_APPID=${WECHAT_APPID:-}
+      - WECHAT_APPSECRET=${WECHAT_APPSECRET:-}
+      - DOCKER_CONTAINER=true  # 标记为 Docker 环境
+    volumes:
+      # 持久化数据目录（数据库、日志、缓存）
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./cache:/app/cache
+      # 配置文件（可选，如果需要持久化配置）
+      - ./config.json:/app/config.json:ro
+    restart: unless-stopped
+    # 资源限制（模拟 Zeabur 环境）
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+

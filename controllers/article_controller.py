@@ -4,6 +4,8 @@
 """
 
 import logging
+import os
+import re
 from flask import request, jsonify
 from typing import Dict, Any
 from services.config_service import ConfigService
@@ -14,6 +16,9 @@ from services.image_service import ImageService
 from services.wechat_service import WeChatService
 from services.draft_service import DraftService
 from services.history_service import HistoryService
+from services.enhanced_article_service import EnhancedArticleService
+from services.markdown_converter import MarkdownConverter
+from services.ai_service_manager import ai_service_manager
 
 logger = logging.getLogger(__name__)
 
@@ -22,13 +27,13 @@ class ArticleController:
     
     def __init__(self):
         self.config_service = ConfigService()
-        self.gemini_service = GeminiService()
-        self.deepseek_service = DeepSeekService()
-        self.dashscope_service = DashScopeService()
+        # 使用统一的AI服务管理器，避免重复实例化
+        self.ai_manager = ai_service_manager
         self.image_service = ImageService()
         self.wechat_service = WeChatService()
         self.draft_service = DraftService()
         self.history_service = HistoryService()
+        self.enhanced_service = EnhancedArticleService()
         logger.info("文章控制器初始化完成")
     
     def generate_article(self) -> Dict[str, Any]:
@@ -82,8 +87,7 @@ class ArticleController:
                         'message': '请先配置Gemini API密钥'
                     }
                 
-                # 设置API密钥
-                self.gemini_service.set_api_key(gemini_config['api_key'])
+                # API密钥已在服务初始化时设置
                 model_name = gemini_config.get('model', 'gemini-1.5-flash')
                 
             elif ai_model == 'deepseek':
@@ -97,8 +101,7 @@ class ArticleController:
                         'message': '请先配置DeepSeek API密钥'
                     }
                 
-                # 设置API密钥
-                self.deepseek_service.set_api_key(deepseek_config['api_key'])
+                # API密钥已在服务初始化时设置
                 model_name = deepseek_config.get('model', 'deepseek-chat')
                 
             elif ai_model == 'dashscope':
@@ -112,8 +115,7 @@ class ArticleController:
                         'message': '请先配置阿里云百炼API密钥'
                     }
                 
-                # 设置API密钥
-                self.dashscope_service = DashScopeService(dashscope_config['api_key'])
+                # API密钥已在服务初始化时设置
                 model_name = dashscope_config.get('model', 'qwen-turbo')
                 
             else:
@@ -131,11 +133,11 @@ class ArticleController:
             logger.info(f"第一步：开始生成文章内容，使用模型: {model_name}")
             
             if ai_model == 'gemini':
-                content = self.gemini_service.generate_article_content(title, model_name, word_count, format_template=format_template)
+                content = self.ai_manager.gemini.generate_article_content(title, model_name, word_count, format_template=format_template)
             elif ai_model == 'deepseek':
-                content = self.deepseek_service.generate_article_content(title, model_name, word_count, format_template=format_template)
+                content = self.ai_manager.deepseek.generate_article_content(title, model_name, word_count, format_template=format_template)
             elif ai_model == 'dashscope':
-                content = self.dashscope_service.generate_article_content(title, model_name, word_count, format_template=format_template)
+                content = self.ai_manager.dashscope.generate_article_content(title, model_name, word_count, format_template=format_template)
             else:
                 return {
                     'success': False,
@@ -153,11 +155,11 @@ class ArticleController:
             # 第二步：生成文章摘要
             logger.info("第二步：开始生成文章摘要")
             if ai_model == 'gemini':
-                digest = self.gemini_service.generate_digest(title, content, model_name)
+                digest = self.ai_manager.gemini.generate_digest(title, content, model_name)
             elif ai_model == 'deepseek':
-                digest = self.deepseek_service.generate_digest(title, content, model_name)
+                digest = self.ai_manager.deepseek.generate_digest(title, content, model_name)
             elif ai_model == 'dashscope':
-                digest = self.dashscope_service.generate_digest(title, content, model_name)
+                digest = self.ai_manager.dashscope.generate_digest(title, content, model_name)
             else:
                 digest = f"探索{title}的深度解析，获取独特见解和实用价值。"
             
@@ -172,20 +174,10 @@ class ArticleController:
                 image_count = int(image_count)
             logger.info(f"文章字数约: {word_count}，计划生成配图数量: {image_count}")
 
-            # 第四步：生成配图并插入
-            logger.info("第四步：开始生成和插入配图")
-            custom_image_prompt = data.get('custom_image_prompt', '').strip()
-            dashscope_image_model_code = data.get('dashscope_image_model_code', '').strip()
-            if image_model == 'dashscope' and dashscope_image_model_code:
-                image_model_code = dashscope_image_model_code
-            else:
-                image_model_code = image_model
-            # 后续传递 image_model_code 给图片生成逻辑
-            dashscope_params = data.get('dashscope_params', {})
-            content_with_images = self._process_images_in_content(
-                content, title, digest, image_count, image_model_code, ai_model, custom_image_prompt,
-                dashscope_params=dashscope_params, dashscope_image_model_code=dashscope_image_model_code
-            )
+            # 第四步：生成配图并插入（已禁用）
+            logger.info("第四步：配图生成功能已禁用，跳过配图生成")
+            # 生图功能已移除，直接使用原始内容
+            content_with_images = content
             
             # 第四点五步：输出原始文章内容到cache文件夹，便于对比
             try:
@@ -237,7 +229,8 @@ class ArticleController:
             from datetime import datetime
             response_data = {
                 'title': title,
-                'content': processed_content,
+                'content': processed_content,  # HTML格式（用于发布）
+                'markdown_content': content,  # Markdown格式（用于编辑器显示）
                 'digest': digest,
                 'generated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 'content_length': len(processed_content),
@@ -288,6 +281,25 @@ class ArticleController:
                     'message': '缺少文章数据'
                 }
             
+            # 如果传入的是Markdown内容，先转换为HTML
+            markdown_content = data.get('markdown_content')
+            if markdown_content:
+                logger.info(f"检测到Markdown内容，开始转换为微信HTML")
+                
+                # 提取标题（如果article_data中没有标题或标题为默认值）
+                if not article_data.get('title') or article_data.get('title') == '文章标题':
+                    article_data['title'] = MarkdownConverter.extract_title(markdown_content)
+                
+                # 转换为HTML
+                article_data['content'] = MarkdownConverter.convert_to_wechat_html(markdown_content)
+                logger.info(f"Markdown转换完成，HTML长度: {len(article_data['content'])}")
+                
+                # 生成摘要（如果没有摘要）
+                if not article_data.get('digest'):
+                    # 提取前100字作为摘要
+                    clean_text = re.sub(r'[#*>\-\[\]()]', '', markdown_content[:200])
+                    article_data['digest'] = clean_text.strip()[:100]
+            
             logger.info(f"开始保存草稿: {article_data.get('title', 'Unknown')}")
             
             # 检查微信配置
@@ -313,26 +325,63 @@ class ArticleController:
             
             access_token = token_info['access_token']
             
-            # 处理文章内容中的图片，上传到微信平台并替换为微信URL，并收集media_id
-            image_process_result = self._process_content_images(article_data['content'], access_token)
-            processed_content = image_process_result['content']
+            # 检查文章内容是否包含图片
+            content_has_images = '<img' in article_data['content'] and 'cache\\' in article_data['content']
+            
+            if content_has_images:
+                # 处理文章内容中的图片，上传到微信平台并替换为微信URL，并收集media_id
+                image_process_result = self._process_content_images(article_data['content'], access_token)
+                processed_content = image_process_result['content']
+                images = image_process_result['images']
+                thumb_media_id = images[0]['media_id'] if images and images[0].get('media_id') else ''
+            else:
+                # 没有图片，直接使用原始内容
+                processed_content = article_data['content']
+                images = []
+                thumb_media_id = ''
+            
             # 记录草稿内容摘要
-            logger.info(f"[草稿保存] 标题={article_data.get('title', 'Unknown')}, 内容前100字={processed_content[:100]}, 图片数={processed_content.count('<img')}")
-            images = image_process_result['images']
-            thumb_media_id = images[0]['media_id'] if images and images[0].get('media_id') else ''
+            logger.info(f"[草稿保存] 标题={article_data.get('title', 'Unknown')}, 内容前100字={processed_content[:100]}, 图片数={processed_content.count('<img')}, 是否有本地图片={content_has_images}")
+            
+            # 微信草稿API要求必须有封面图片
+            show_cover_pic = 0
+            if not thumb_media_id:
+                # 如果没有图片，创建一个默认封面图片
+                logger.info("没有图片，创建默认封面图片")
+                default_cover_path = self._create_default_cover_image()
+                if default_cover_path:
+                    # 上传默认封面图片
+                    upload_result = self.wechat_service.upload_permanent_material(
+                        access_token, default_cover_path, 'image'
+                    )
+                    thumb_media_id = upload_result.get('media_id') if upload_result else ''
+                    logger.info(f"默认封面图片上传结果: {upload_result}")
+                else:
+                    logger.error("创建默认封面图片失败")
+                    return {
+                        'success': False,
+                        'message': '创建默认封面图片失败'
+                    }
             
             # 获取作者配置
             author_config = self.config_service.get_author_config()
             
             # 创建草稿数据，使用第一个图片的media_id作为thumb_media_id
             logger.info("开始创建草稿")
+            
+            # 确保摘要不为空，微信API要求摘要字段
+            digest = article_data.get('digest', '')
+            if not digest:
+                digest = article_data['title'][:120] + '...' if len(article_data['title']) > 120 else article_data['title']
+            
             draft_data = self.draft_service.build_draft_data(
                 title=article_data['title'],
                 content=processed_content,
                 author=author_config['author'],
-                digest=article_data.get('digest', ''),
+                digest=digest,
                 thumb_media_id=thumb_media_id,
-                content_source_url=author_config['content_source_url']
+                content_source_url=author_config['content_source_url'],
+                show_cover_pic=show_cover_pic
             )
             
             # 验证草稿数据
@@ -500,6 +549,71 @@ class ArticleController:
             logger.error(f"处理内容图片时发生错误: {str(e)}")
             return {'content': content, 'images': []}  # 出错时返回原始内容
     
+    def _create_default_cover_image(self) -> str:
+        """
+        创建一个简单的默认封面图片
+        :return: 图片文件路径
+        """
+        try:
+            from PIL import Image, ImageDraw, ImageFont
+            
+            # 创建默认封面图片
+            default_image_path = "static/images/default_cover.jpg"
+            os.makedirs(os.path.dirname(default_image_path), exist_ok=True)
+            
+            # 检查是否已存在
+            if os.path.exists(default_image_path):
+                logger.info(f"默认封面图片已存在: {default_image_path}")
+                return default_image_path
+            
+            # 创建一个符合微信要求的封面图片（微信要求比例2.35:1）
+            img = Image.new('RGB', (900, 383), color='#f0f0f0')
+            draw = ImageDraw.Draw(img)
+            
+            # 添加文字
+            try:
+                # 尝试使用系统字体
+                font = ImageFont.truetype("arial.ttf", 40)
+            except:
+                # 使用默认字体
+                font = ImageFont.load_default()
+            
+            text = "默认封面"
+            # 计算文字位置（居中）
+            bbox = draw.textbbox((0, 0), text, font=font)
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
+            x = (900 - text_width) // 2
+            y = (383 - text_height) // 2
+            
+            draw.text((x, y), text, fill='#666666', font=font)
+            
+            # 保存图片
+            img.save(default_image_path, 'JPEG', quality=85)
+            
+            logger.info(f"创建默认封面图片成功: {default_image_path}")
+            return default_image_path
+            
+        except Exception as e:
+            logger.error(f"创建默认封面图片失败: {str(e)}")
+            # 如果PIL不可用，创建一个简单的占位文件
+            try:
+                default_image_path = "static/images/default_cover.jpg"
+                os.makedirs(os.path.dirname(default_image_path), exist_ok=True)
+                
+                # 创建一个最小的JPEG文件
+                minimal_jpeg = b'\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01\x01\x00H\x00H\x00\x00\xff\xdb\x00C\x00\x08\x06\x06\x07\x06\x05\x08\x07\x07\x07\t\t\x08\n\x0c\x14\r\x0c\x0b\x0b\x0c\x19\x12\x13\x0f\x14\x1d\x1a\x1f\x1e\x1d\x1a\x1c\x1c $.\' ",#\x1c\x1c(7),01444\x1f\'9=82<.342\xff\xc0\x00\x11\x08\x00\x01\x00\x01\x01\x01\x11\x00\x02\x11\x01\x03\x11\x01\xff\xc4\x00\x14\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x08\xff\xc4\x00\x14\x10\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xda\x00\x0c\x03\x01\x00\x02\x11\x03\x11\x00\x3f\x00\xaa\xff\xd9'
+                
+                with open(default_image_path, 'wb') as f:
+                    f.write(minimal_jpeg)
+                
+                logger.info(f"创建最小默认封面图片: {default_image_path}")
+                return default_image_path
+                
+            except Exception as e2:
+                logger.error(f"创建最小默认封面图片也失败: {str(e2)}")
+                return None
+    
     def _get_image_path(self, image_url: str) -> str:
         """
         从图片URL获取本地路径
@@ -542,79 +656,11 @@ class ArticleController:
     
     def _process_images_in_content(self, content: str, title: str, description: str, image_count: int, image_model: str = "gemini", ai_model: str = "gemini", custom_image_prompt: str = "", dashscope_params: dict = None, dashscope_image_model_code: str = "") -> str:
         """
-        在文章内容中处理配图：生成图片并插入到合适位置，仅插入本地图片路径，不上传到公众号平台。
-        :param content: 原始文章内容
-        :param title: 文章标题
-        :param description: 文章描述
-        :param image_count: 配图数量
-        :param image_model: 生图模型
-        :param ai_model: AI模型（用于Pexels搜索提示词生成）
-        :param custom_image_prompt: 自定义图片提示词
-        :return: 插入配图后的内容
+        在文章内容中处理配图（已禁用）
+        生图功能已移除，直接返回原始内容
         """
-        try:
-            logger.info(f"开始处理文章配图，计划生成{image_count}张图片（仅本地路径，不上传微信）")
-            paragraphs = content.split('</p>')
-            total_paragraphs = len(paragraphs)
-            if total_paragraphs < 2 or image_count < 1:
-                logger.warning("文章段落过少或配图数量小于1，跳过配图插入")
-                return content
-            if image_count >= total_paragraphs:
-                insert_positions = list(range(1, total_paragraphs))[:image_count]
-            else:
-                insert_positions = [round((i + 1) * total_paragraphs / (image_count + 1)) for i in range(image_count)]
-            logger.info(f"计划在第{insert_positions}段后插入配图")
-            generated_images = []
-            if dashscope_params is None:
-                dashscope_params = {}
-            for i, position in enumerate(insert_positions):
-                try:
-                    logger.info(f"生成第{i+1}张配图，使用模型: {image_model}")
-                    user_custom_prompt = custom_image_prompt
-                    # dashscope模型ID优先用dashscope_params['model_name']，否则用dashscope_image_model_code
-                    if image_model == 'dashscope':
-                        if not dashscope_params.get('model_name') and dashscope_image_model_code:
-                            dashscope_params['model_name'] = dashscope_image_model_code
-                        if not dashscope_params.get('model_name'):
-                            logger.error("阿里云百炼模型ID未传递")
-                            return content
-                    image_path = self.image_service.generate_article_image(
-                        title=title,
-                        description=description,
-                        image_model=image_model,
-                        article_content=content,
-                        ai_model=ai_model,
-                        image_index=i+1,
-                        total_images=image_count,
-                        dashscope_params=dashscope_params,
-                        user_custom_prompt=user_custom_prompt
-                    )
-                    if image_path:
-                        image_html = f'<img src="{image_path}" alt="文章配图" style="max-width: 100%; height: auto;">'
-                        logger.info(f"第{i+1}张配图处理完成，使用本地路径: {image_path}")
-                        generated_images.append({
-                            'local_path': image_path,
-                            'image_html': image_html,
-                            'position': position
-                        })
-                    else:
-                        logger.warning(f"第{i+1}张配图生成失败")
-                except Exception as e:
-                    logger.error(f"生成第{i+1}张配图时出错: {str(e)}")
-            processed_content = content
-            for img_info in sorted(generated_images, key=lambda x: -x['position']):
-                position = img_info['position']
-                image_html = f'<p style="text-align: center;">{img_info["image_html"]}</p>'
-                parts = processed_content.split('</p>')
-                if position < len(parts):
-                    parts.insert(position, image_html)
-                    processed_content = '</p>'.join(parts)
-                    logger.info(f"在第{position}段后插入配图")
-            logger.info(f"配图处理完成，共插入{len(generated_images)}张图片")
-            return processed_content
-        except Exception as e:
-            logger.error(f"处理配图时发生错误: {str(e)}")
-            return content  # 出错时返回原始内容
+        logger.info("配图生成功能已禁用，直接返回原始内容")
+        return content
     
     def get_generation_history(self) -> Dict[str, Any]:
         """
@@ -881,3 +927,52 @@ class ArticleController:
         except Exception as e:
             logger.error(f"自动更新失败: {e}")
             return {'success': False, 'message': str(e)}
+    
+    def generate_enhanced_article(self) -> Dict[str, Any]:
+        """
+        生成增强版文章（集成N8N工作流逻辑）
+        """
+        try:
+            data = request.get_json()
+            if not data:
+                return {
+                    'success': False,
+                    'message': '请求数据为空'
+                }
+            
+            title = data.get('title', '')
+            ai_model = data.get('ai_model', 'gemini')
+            word_count = data.get('word_count', 1500)
+            include_data_collection = data.get('include_data_collection', True)
+            
+            if not title:
+                return {
+                    'success': False,
+                    'message': '文章标题不能为空'
+                }
+            
+            logger.info(f"生成增强版文章请求: {title}")
+            
+            # 调用增强版文章生成服务
+            result = self.enhanced_service.generate_enhanced_article(
+                title=title,
+                ai_model=ai_model,
+                word_count=word_count,
+                include_data_collection=include_data_collection
+            )
+            
+            if result['success']:
+                # 暂时跳过历史记录保存，专注于测试文章生成功能
+                logger.info(f"增强版文章生成成功: {title}")
+                logger.info(f"文章长度: {len(result.get('content', ''))} 字符")
+                logger.info(f"元数据: {result.get('metadata', {})}")
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"生成增强版文章失败: {e}")
+            return {
+                'success': False,
+                'message': f'生成文章失败: {str(e)}'
+            }
+    

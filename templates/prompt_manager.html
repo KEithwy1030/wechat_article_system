@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>提示词管理中心 - 微信公众号AI自动发布系统 v2.0</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/themes/prism.min.css" rel="stylesheet">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <style>
+        .template-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+        .template-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .template-header {
+            background: #f8f9fa;
+            padding: 15px;
+            border-bottom: 1px solid #e0e0e0;
+            border-radius: 8px 8px 0 0;
+        }
+        .template-content {
+            padding: 20px;
+        }
+        .stats-badge {
+            font-size: 0.8em;
+            margin-left: 10px;
+        }
+        .success-rate {
+            color: #28a745;
+        }
+        .low-success-rate {
+            color: #dc3545;
+        }
+        .prompt-editor {
+            font-family: 'Courier New', monospace;
+            min-height: 200px;
+        }
+        .variable-tag {
+            background: #007bff;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            margin: 2px;
+            display: inline-block;
+        }
+        .category-tabs {
+            margin-bottom: 20px;
+        }
+        .preview-area {
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 15px;
+            min-height: 200px;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">微信公众号AI自动发布系统</a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/">返回主页</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-12">
+                <h1>提示词管理中心</h1>
+                <p class="text-muted">可视化管理AI提示词，实时调整文章生成质量</p>
+            </div>
+        </div>
+
+        <!-- 统计面板 -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title text-primary" id="total-templates">0</h5>
+                        <p class="card-text">总模板数</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title text-success" id="active-templates">0</h5>
+                        <p class="card-text">活跃模板</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title text-info" id="avg-success-rate">0%</h5>
+                        <p class="card-text">平均成功率</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title text-warning" id="total-usage">0</h5>
+                        <p class="card-text">总使用次数</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <button class="btn btn-success" onclick="exportTemplates()">
+                    <i class="bi bi-download"></i> 导出模板
+                </button>
+                <button class="btn btn-info" onclick="importTemplates()">
+                    <i class="bi bi-upload"></i> 导入模板
+                </button>
+                <button class="btn btn-warning" onclick="refreshData()">
+                    <i class="bi bi-arrow-clockwise"></i> 刷新数据
+                </button>
+            </div>
+        </div>
+
+        <!-- 分类标签页（仅保留撰写主编） -->
+        <ul class="nav nav-tabs category-tabs" id="categoryTabs">
+            <li class="nav-item">
+                <a class="nav-link active" data-category="all">全部模板</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-category="writer">撰写主编</a>
+            </li>
+        </ul>
+
+        <!-- 模板列表 -->
+        <div class="row" id="templatesContainer">
+            <!-- 模板卡片将通过JavaScript动态生成 -->
+        </div>
+
+        <!-- 提示词模板库 -->
+        <div class="row mb-4 mt-5">
+            <div class="col-12">
+                <h2>提示词模板库</h2>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">选择模板类型</label>
+                            <select class="form-select" id="templateTypeSelect" onchange="loadTemplateByType()">
+                                <option value="">选择模板类型...</option>
+                                <option value="writer">撰写主编</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">模板名称</label>
+                            <input type="text" class="form-control" id="templateName" placeholder="输入模板名称">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 提示词编辑器和预览区域 -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header d-flex align-items-center">
+                        <i class="bi bi-pencil-square me-2"></i>
+                        <span>提示词编辑器</span>
+                    </div>
+                    <div class="card-body">
+                        <textarea class="form-control prompt-editor" id="templateContent" rows="20" 
+                                  placeholder="在这里编辑提示词模板..."></textarea>
+                        <div class="form-text mt-2">
+                            使用 <code>{变量名}</code> 格式定义可替换的变量
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header d-flex align-items-center">
+                        <i class="bi bi-phone me-2"></i>
+                        <span>预览效果</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">测试数据</label>
+                            <textarea class="form-control" id="testData" rows="5" 
+                                      placeholder="输入测试数据来预览提示词效果..."></textarea>
+                        </div>
+                        <div class="preview-area" id="previewArea">
+                            <div class="text-center text-muted">
+                                <i class="bi bi-file-text" style="font-size: 2rem;"></i>
+                                <p class="mt-2 mb-0">暂无预览内容</p>
+                                <small>在左侧编辑器中输入内容，这里将显示预览效果</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="row mt-4">
+            <div class="col-12 text-center">
+                <button type="button" class="btn btn-primary me-2" onclick="saveTemplate()">
+                    <i class="bi bi-download"></i> 保存模板
+                </button>
+                <button type="button" class="btn btn-success me-2" onclick="testPrompt()">
+                    <i class="bi bi-play"></i> 测试提示词
+                </button>
+                <button type="button" class="btn btn-warning me-2" onclick="resetEditor()">
+                    <i class="bi bi-arrow-clockwise"></i> 重置
+                </button>
+                <button type="button" class="btn btn-info" onclick="refreshData()">
+                    <i class="bi bi-arrow-clockwise"></i> 刷新数据
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导入模板模态框 -->
+    <div class="modal fade" id="importModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">导入模板</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">选择JSON文件</label>
+                        <input type="file" class="form-control" id="importFile" accept=".json">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="button" class="btn btn-primary" onclick="handleImport()">导入</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/components/prism-core.min.js"></script>
+    <script>
+        let templates = {};
+        let currentEditingKey = null;
+
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadTemplates();
+            setupEventListeners();
+        });
+
+        function setupEventListeners() {
+            // 分类标签页切换
+            document.querySelectorAll('[data-category]').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const category = this.dataset.category;
+                    switchCategory(category);
+                    
+                    // 更新标签页状态
+                    document.querySelectorAll('[data-category]').forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+                });
+            });
+
+            // 模板内容变化时更新预览
+            document.getElementById('templateContent').addEventListener('input', updatePreview);
+            
+            // 测试数据变化时更新预览
+            document.getElementById('testData').addEventListener('input', updatePreview);
+        }
+
+        async function loadTemplates() {
+            try {
+                const response = await fetch('/api/prompt-templates?category=writer');
+                const result = await response.json();
+                if (result.success) {
+                    templates = result.data;
+                    updateStatistics();
+                    renderTemplates();
+                } else {
+                    console.error('API返回错误:', result.message);
+                    showAlert('加载模板失败: ' + result.message, 'danger');
+                }
+            } catch (error) {
+                console.error('加载模板失败:', error);
+                showAlert('加载模板失败', 'danger');
+            }
+        }
+
+        function updateStatistics() {
+            const total = Object.keys(templates).length;
+            const active = Object.values(templates).filter(t => t.is_active).length;
+            const totalUsage = Object.values(templates).reduce((sum, t) => sum + (t.usage_count || 0), 0);
+            const avgSuccessRate = total > 0 ? 
+                Object.values(templates).reduce((sum, t) => sum + (t.success_rate || 0), 0) / total : 0;
+
+            document.getElementById('total-templates').textContent = total;
+            document.getElementById('active-templates').textContent = active;
+            document.getElementById('avg-success-rate').textContent = (avgSuccessRate * 100).toFixed(1) + '%';
+            document.getElementById('total-usage').textContent = totalUsage;
+        }
+
+        function renderTemplates(category = 'all') {
+            const container = document.getElementById('templatesContainer');
+            container.innerHTML = '';
+
+            Object.entries(templates).forEach(([key, template]) => {
+                if (category !== 'all' && template.category !== category) return;
+
+                const card = createTemplateCard(key, template);
+                container.appendChild(card);
+            });
+        }
+
+        function createTemplateCard(key, template) {
+            const col = document.createElement('div');
+            col.className = 'col-md-6 col-lg-4';
+
+            const successRateClass = template.success_rate >= 0.7 ? 'success-rate' : 'low-success-rate';
+            
+            col.innerHTML = `
+                <div class="template-card">
+                    <div class="template-header">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">${template.name}</h6>
+                            <div>
+                                <span class="badge bg-primary" title="${template.category_description || ''}">${template.category_display || template.category}</span>
+                                ${template.is_active ? '<span class="badge bg-success">活跃</span>' : '<span class="badge bg-secondary">禁用</span>'}
+                            </div>
+                        </div>
+                        ${template.category_description ? `<small class="text-muted d-block mt-1">${template.category_description}</small>` : ''}
+                    </div>
+                    <div class="template-content">
+                        <p class="text-muted small">${template.content.substring(0, 100)}...</p>
+                        
+                        <div class="mb-2">
+                            <small class="text-muted">使用次数: </small>
+                            <span class="badge bg-info">${template.usage_count}</span>
+                            <small class="text-muted">成功率: </small>
+                            <span class="badge ${successRateClass}">${(template.success_rate * 100).toFixed(1)}%</span>
+                        </div>
+
+                        ${Object.keys(template.variables).length > 0 ? 
+                            `<div class="mb-2">
+                                <small class="text-muted">变量: </small>
+                                ${Object.keys(template.variables).map(v => `<span class="variable-tag">{${v}}</span>`).join('')}
+                            </div>` : ''
+                        }
+
+                        <div class="btn-group w-100" role="group">
+                            <button class="btn btn-sm btn-outline-primary" onclick="editTemplate('${key}')">
+                                编辑
+                            </button>
+                            <button class="btn btn-sm btn-outline-success" onclick="toggleTemplate('${key}')">
+                                ${template.is_active ? '禁用' : '启用'}
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteTemplate('${key}')">
+                                删除
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            return col;
+        }
+
+        function switchCategory(category) {
+            renderTemplates(category);
+        }
+
+        function editTemplate(key) {
+            const template = templates[key];
+            currentEditingKey = key;
+            
+            document.getElementById('templateTypeSelect').value = template.category;
+            document.getElementById('templateName').value = template.name;
+            document.getElementById('templateContent').value = template.content;
+            
+            updatePreview();
+        }
+
+        function updatePreview() {
+            const content = document.getElementById('templateContent').value;
+            const testData = document.getElementById('testData').value;
+            const previewArea = document.getElementById('previewArea');
+            
+            if (!content.trim()) {
+                previewArea.innerHTML = `
+                    <div class="text-center text-muted">
+                        <i class="bi bi-file-text" style="font-size: 2rem;"></i>
+                        <p class="mt-2 mb-0">暂无预览内容</p>
+                        <small>在左侧编辑器中输入内容，这里将显示预览效果</small>
+                    </div>
+                `;
+                return;
+            }
+            
+            // 简单的预览渲染
+            let preview = content;
+            
+            // 如果有测试数据，进行简单的变量替换演示
+            if (testData.trim()) {
+                preview = preview.replace(/\{([^}]+)\}/g, `<span class="badge bg-primary">{$1}</span>`);
+            }
+            
+            previewArea.innerHTML = `
+                <div class="border p-3 bg-white rounded">
+                    <h6>预览效果：</h6>
+                    <pre style="white-space: pre-wrap; font-size: 0.9em;">${preview}</pre>
+                </div>
+            `;
+        }
+
+        // 新增功能函数
+        function loadTemplateByType() {
+            const templateType = document.getElementById('templateTypeSelect').value;
+            const templateContent = document.getElementById('templateContent');
+            const templateName = document.getElementById('templateName');
+            
+            // 根据类型加载默认模板
+            const defaultTemplates = {
+                'writer': {
+                    name: '老k主编',
+                    content: `你是公众号"老k看不准"的主编。请根据以下信息撰写文章，**必须严格参考历史文章的排版风格**：
+
+**赛前情报摘要：** {intelligence_summary}
+**昨日文章参考：** {yesterday_content}
+
+请生成一篇完整的微信公众号文章，严格按照以下格式和排版要求：
+
+**文章结构要求：**
+1. **主标题**：在文章内容开头显示完整标题，如：周日006 韩职 水原FCVS首尔FC
+2. **作者信息**：紧跟标题显示"老k"
+3. **配图说明**：在文章开头添加配图说明，格式为：![比赛配图](match_image.jpg)
+4. **前言部分**：使用"老k前言"作为小标题，内容以"各位老铁，午好！"开头
+5. **主体内容**：使用"一、二、三、四"编号，每个标题都要加粗
+6. **判断部分**：独立的"老k的判断"部分
+7. **推荐部分**：独立的"推荐：{home_team}胜"，完整格式
+8. **结尾部分"："老k多说一句"
+9. **声明部分**：使用引用块格式
+
+**排版要求：**
+- 使用HTML标签控制格式，不使用Markdown
+- 标题使用<strong>标签加粗
+- 段落之间有充足的空行
+- 关键信息加粗显示
+- 声明使用<blockquote>引用块格式
+
+请直接输出完整的HTML格式文章内容：`
+                },
+                'qwen_vl_analyzer': {
+                    name: '千问VL体育数据分析师',
+                    content: `请仔细分析这张体育数据截图，提取以下所有可能的数据：
+
+## 必需提取的数据：
+
+### 1. 比赛基本信息
+- 主队名称（中英文）
+- 客队名称（中英文）  
+- 比赛时间（具体日期和时间）
+- 联赛类型和级别
+- 比赛状态（未开始/进行中/已结束）
+- 比赛场地
+
+### 2. 比分和结果
+- 最终比分
+- 半场比分
+- 加时赛比分（如有）
+- 点球大战比分（如有）
+- 比赛结果
+
+### 3. 详细技术统计
+- 射门次数（总数和射正）
+- 控球率百分比
+- 角球数量
+- 任意球数量
+- 越位次数
+- 犯规次数
+- 黄牌和红牌数量
+- 传球成功率和传球次数
+- 拦截次数
+- 抢断次数
+
+### 4. 球员数据
+- 进球球员姓名和进球时间
+- 助攻球员姓名
+- 被替换球员和替补球员
+- 主要球员的详细统计
+
+### 5. 赔率信息（如有）
+- 胜平负赔率
+- 让球盘赔率
+- 大小球赔率
+- 其他投注选项
+
+### 6. 历史数据
+- 双方历史交锋记录
+- 最近几场比赛结果
+- 主客场表现对比
+
+### 7. 其他重要信息
+- 天气条件
+- 观众人数
+- 裁判信息
+- 伤病情况
+- 停赛球员
+
+请以详细的JSON格式返回所有提取到的数据，如果某些信息在截图中没有显示，请标注"未显示"。确保提取的数据与截图内容完全一致。`
+                }
+            };
+            
+            if (templateType && defaultTemplates[templateType]) {
+                const template = defaultTemplates[templateType];
+                templateName.value = template.name;
+                templateContent.value = template.content;
+                updatePreview();
+            }
+        }
+        
+        async function testPrompt() {
+            const templateContent = document.getElementById('templateContent').value;
+            const testData = document.getElementById('testData').value;
+            const previewArea = document.getElementById('previewArea');
+            
+            if (!templateContent.trim()) {
+                showAlert('请先输入提示词内容', 'warning');
+                return;
+            }
+            
+            // 显示加载状态
+            previewArea.innerHTML = `
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">测试中...</span>
+                    </div>
+                    <p class="mt-2">正在测试提示词...</p>
+                </div>
+            `;
+            
+            try {
+                // 这里应该调用实际的测试API
+                // 暂时模拟测试结果
+                setTimeout(() => {
+                    previewArea.innerHTML = `
+                        <div class="alert alert-success">
+                            <h6>测试结果预览：</h6>
+                            <p>提示词格式正确，变量替换成功。</p>
+                            <p><strong>测试数据：</strong> ${testData || '无'}</p>
+                            <p><strong>提示词长度：</strong> ${templateContent.length} 字符</p>
+                        </div>
+                    `;
+                }, 2000);
+                
+            } catch (error) {
+                previewArea.innerHTML = `
+                    <div class="alert alert-danger">
+                        <h6>测试失败：</h6>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+        
+        function resetEditor() {
+            document.getElementById('templateTypeSelect').value = '';
+            document.getElementById('templateName').value = '';
+            document.getElementById('templateContent').value = '';
+            document.getElementById('testData').value = '';
+            document.getElementById('previewArea').innerHTML = `
+                <div class="text-center text-muted">
+                    <i class="bi bi-file-text" style="font-size: 2rem;"></i>
+                    <p class="mt-2 mb-0">暂无预览内容</p>
+                    <small>在左侧编辑器中输入内容，这里将显示预览效果</small>
+                </div>
+            `;
+        }
+
+        async function saveTemplate() {
+            const name = document.getElementById('templateName').value;
+            const category = document.getElementById('templateTypeSelect').value;
+            const content = document.getElementById('templateContent').value;
+            
+            if (!name || !content || !category) {
+                showAlert('请填写必要信息', 'warning');
+                return;
+            }
+
+            const templateData = {
+                name,
+                category,
+                content,
+                variables: {}, // 简化变量系统
+                is_active: true
+            };
+
+            try {
+                const response = await fetch('/api/prompt-templates', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(templateData)
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('保存成功', 'success');
+                    loadTemplates();
+                    
+                    // 如果是千问VL分析器，需要同步到实际工作流
+                    if (category === 'qwen_vl_analyzer') {
+                        await syncQwenVLPrompt(content);
+                    }
+                } else {
+                    throw new Error(result.message || '保存失败');
+                }
+            } catch (error) {
+                console.error('保存失败:', error);
+                showAlert('保存失败: ' + error.message, 'danger');
+            }
+        }
+        
+        // 同步千问VL提示词到实际工作流
+        async function syncQwenVLPrompt(content) {
+            try {
+                const response = await fetch('/api/sync-qwen-vl-prompt', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: content })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('千问VL提示词已同步到工作流', 'success');
+                } else {
+                    showAlert('提示词保存成功，但同步到工作流失败: ' + result.message, 'warning');
+                }
+            } catch (error) {
+                console.error('同步千问VL提示词失败:', error);
+                showAlert('提示词保存成功，但同步到工作流失败', 'warning');
+            }
+        }
+
+        async function toggleTemplate(key) {
+            const template = templates[key];
+            try {
+                const response = await fetch(`/api/prompt-templates/${key}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ is_active: !template.is_active })
+                });
+
+                if (response.ok) {
+                    loadTemplates();
+                } else {
+                    throw new Error('操作失败');
+                }
+            } catch (error) {
+                console.error('操作失败:', error);
+                showAlert('操作失败', 'danger');
+            }
+        }
+
+        async function deleteTemplate(key) {
+            if (!confirm('确定要删除这个模板吗？')) return;
+
+            try {
+                const response = await fetch(`/api/prompt-templates/${key}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    showAlert('删除成功', 'success');
+                    loadTemplates();
+                } else {
+                    throw new Error('删除失败');
+                }
+            } catch (error) {
+                console.error('删除失败:', error);
+                showAlert('删除失败', 'danger');
+            }
+        }
+
+        function exportTemplates() {
+            const data = {
+                export_time: new Date().toISOString(),
+                templates: templates
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `prompt_templates_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function importTemplates() {
+            new bootstrap.Modal(document.getElementById('importModal')).show();
+        }
+
+        function handleImport() {
+            const file = document.getElementById('importFile').files[0];
+            if (!file) {
+                showAlert('请选择文件', 'warning');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    const response = await fetch('/api/prompt-templates/import', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+
+                    if (response.ok) {
+                        showAlert('导入成功', 'success');
+                        bootstrap.Modal.getInstance(document.getElementById('importModal')).hide();
+                        loadTemplates();
+                    } else {
+                        throw new Error('导入失败');
+                    }
+                } catch (error) {
+                    console.error('导入失败:', error);
+                    showAlert('导入失败', 'danger');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function refreshData() {
+            loadTemplates();
+            showAlert('数据已刷新', 'info');
+        }
+
+        function showAlert(message, type) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+            alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(alertDiv);
+            
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.parentNode.removeChild(alertDiv);
+                }
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

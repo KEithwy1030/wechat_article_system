@@ -10,7 +10,7 @@ from datetime import datetime
 from typing import Optional, Dict, Any
 from google import genai
 from google.genai import types
-from config.app_config import AppConfig
+from app_config import AppConfig
 from services.prompt_manager import PromptManager
 
 logger = logging.getLogger(__name__)
@@ -36,6 +36,68 @@ class ImageService:
         
         return self.client
     
+    def generate_female_fan_image(self, match_info: dict, team_side: str = "home", 
+                                  image_model: str = "gemini", ai_model: str = "gemini",
+                                  reference_image_path: str = None,
+                                  dashscope_params: dict = None) -> Optional[str]:
+        """
+        生成女球迷照片（真实、吸引眼球）
+        
+        :param match_info: 比赛信息字典，包含 home_team, away_team, league 等
+        :param team_side: "home" 或 "away"，表示主队或客队
+        :param image_model: 生图模型 (gemini, dashscope)
+        :param ai_model: AI模型，用于润色提示词
+        :param reference_image_path: 参考图片路径（可选）
+        :param dashscope_params: DashScope专用参数
+        :return: 图片文件路径
+        """
+        try:
+            from services.prompt_manager import PromptManager
+            
+            team_name = match_info.get('home_team' if team_side == 'home' else 'away_team', '球队')
+            logger.info(f"开始生成{team_name}女球迷照片，使用模型: {image_model}")
+            
+            # 如果有参考图片，先分析参考图片
+            reference_description = ""
+            if reference_image_path and os.path.exists(reference_image_path):
+                try:
+                    from services.gemini_service import gemini_service
+                    analysis = gemini_service.analyze_image(
+                        reference_image_path,
+                        "请详细描述这张图片：人物外貌特征、身材特点、服装、表情、姿态、拍摄风格、背景等关键视觉元素"
+                    )
+                    if analysis.get('success'):
+                        reference_description = analysis.get('content', '')
+                        logger.info(f"参考图片分析完成: {reference_description[:100]}...")
+                except Exception as e:
+                    logger.warning(f"分析参考图片失败: {e}")
+            
+            # 生成中文提示词
+            chinese_prompt = PromptManager.female_fan_image_prompt(
+                match_info=match_info,
+                team_side=team_side,
+                reference_image_description=reference_description
+            )
+            
+            # 用AI转换为英文提示词
+            english_prompt = self._generate_prompt_with_ai(ai_model, chinese_prompt, match_info)
+            
+            # 根据模型生成图片
+            if image_model == "gemini":
+                return self._generate_with_gemini(english_prompt, reference_image_path)
+            elif image_model == "dashscope":
+                if dashscope_params is None:
+                    dashscope_params = {}
+                dashscope_params['positive_prompt'] = english_prompt
+                return self._generate_with_dashscope_v2("", "", dashscope_params)
+            else:
+                logger.error(f"不支持的生图模型: {image_model}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"生成女球迷照片时发生错误: {str(e)}")
+            return None
+    
     def generate_article_image(self, title: str, description: str = "", image_model: str = "gemini", 
                              article_content: str = "", ai_model: str = "gemini", 
                              image_index: int = 1, total_images: int = 1,
@@ -56,7 +118,7 @@ class ImageService:
         """
         try:
             logger.info(f"开始生成文章配图，标题: {title}, 生图模型: {image_model}, AI模型: {ai_model}, 图片索引: {image_index}/{total_images}")
-            # 推荐逻辑：阿里云百炼/Coze如无正向提示词和自定义提示词，则用PromptManager.image_prompt生成完整提示词
+            # 推荐逻辑：阿里云百炼/Coze如无正向提示词和自定义提示词，则用PromptManager.image_prompt_with_style生成完整提示词
             if image_model in ["dashscope", "coze"]:
                 # 优先用用户输入
                 final_prompt = user_custom_prompt or (dashscope_params.get('positive_prompt') if dashscope_params else None)
@@ -65,7 +127,14 @@ class ImageService:
             else:
                 final_prompt = PromptManager.image_prompt_with_style(title, description, user_custom_prompt)
             if image_model == "gemini":
-                return self._generate_with_gemini(final_prompt)
+                # final_prompt 可能是中文或英文，需要转换为英文
+                if user_custom_prompt:
+                    # 如果用户提供了自定义提示词，直接使用
+                    english_prompt = user_custom_prompt
+                else:
+                    # 否则用AI转换为英文
+                    english_prompt = self._generate_prompt_with_ai(ai_model, final_prompt)
+                return self._generate_with_gemini(english_prompt)
             elif image_model == "deepseek":
                 return self._generate_with_deepseek(final_prompt)
             elif image_model == "dashscope":
@@ -74,11 +143,7 @@ class ImageService:
                     dashscope_params = {}
                 dashscope_params['positive_prompt'] = final_prompt
                 return self._generate_with_dashscope_v2(title, description, dashscope_params)
-            elif image_model == "pexels":
-                return self._search_with_pexels(title, description, article_content, ai_model, 
-                                              image_index=image_index, total_images=total_images)
-            elif image_model == "coze":
-                return self._generate_with_coze(final_prompt)
+            # Pexels和Coze功能已移除
             else:
                 logger.error(f"不支持的生图模型: {image_model}")
                 return None
@@ -86,13 +151,16 @@ class ImageService:
             logger.error(f"生成文章配图时发生错误: {str(e)}")
             return None
     
-    def _generate_with_gemini(self, title: str, description: str = "") -> Optional[str]:
-        """使用Gemini生成图片"""
+    def _generate_with_gemini(self, prompt: str, reference_image_path: str = None) -> Optional[str]:
+        """
+        使用Gemini生成图片
+        
+        :param prompt: 英文提示词
+        :param reference_image_path: 参考图片路径（可选）
+        :return: 图片文件路径
+        """
         try:
             client = self._get_gemini_client()
-            
-            # 生成图片提示词
-            image_prompt = PromptManager.image_prompt(title, description)
             
             # 生成文件名
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -101,9 +169,22 @@ class ImageService:
             
             logger.debug(f"Gemini图片保存路径: {image_path}")
             
+            # 构建内容列表
+            contents = [prompt]
+            
+            # 如果提供参考图片，添加到内容中
+            if reference_image_path and os.path.exists(reference_image_path):
+                try:
+                    with open(reference_image_path, 'rb') as f:
+                        image_data = f.read()
+                    contents.append(types.Image.from_bytes(image_data))
+                    logger.info(f"已添加参考图片: {reference_image_path}")
+                except Exception as e:
+                    logger.warning(f"加载参考图片失败: {e}")
+            
             response = client.models.generate_content(
                 model=AppConfig.GEMINI_IMAGE_MODEL,
-                contents=image_prompt,
+                contents=contents,
                 config=types.GenerateContentConfig(
                     response_modalities=['TEXT', 'IMAGE']
                 )
@@ -164,77 +245,7 @@ class ImageService:
             logger.error(f"阿里云百炼生成文章配图时发生错误: {str(e)}")
             return None
     
-    def _generate_with_coze(self, title: str, description: str = "") -> Optional[str]:
-        """使用Coze工作流API生成图片（非流式）"""
-        try:
-            from services.config_service import ConfigService
-            import requests
-            config_service = ConfigService()
-            coze_config = config_service.get_coze_config()
-            coze_token = coze_config.get('coze_token', '')
-            workflow_id = coze_config.get('coze_workflow_id', '')
-            if not coze_token:
-                logger.error("Coze令牌未配置")
-                return None
-            if not workflow_id:
-                logger.error("Coze工作流ID未配置")
-                return None
-
-            # 这里假设workflow_id和参数需要根据实际业务调整
-            parameters = {
-                "title": title,
-                "description": description
-            }
-            url = "https://api.coze.cn/v1/workflow/run"
-            headers = {
-                "Authorization": f"Bearer {coze_token}",
-                "Content-Type": "application/json"
-            }
-            payload = {
-                "workflow_id": workflow_id,
-                "parameters": parameters
-            }
-            response = requests.post(url, headers=headers, json=payload, timeout=30)
-            if response.status_code != 200:
-                logger.error(f"Coze API请求失败，状态码: {response.status_code}, 响应: {response.text}")
-                return None
-            resp_json = response.json()
-            if resp_json.get('code') != 0:
-                logger.error(f"Coze API返回错误: {resp_json.get('msg')}")
-                return None
-            # 假设返回的data字段为JSON字符串，包含图片URL
-            import json as _json
-            data = resp_json.get('data')
-            if not data:
-                logger.error("Coze API未返回图片数据")
-                return None
-            try:
-                data_obj = _json.loads(data) if isinstance(data, str) else data
-            except Exception:
-                data_obj = data
-            image_url = data_obj.get('image_url') or data_obj.get('url') or data_obj.get('output') or data_obj.get('title') 
-            if not image_url:
-                logger.error(f"Coze返回数据未包含图片URL: {data_obj}")
-                return None
-            # 下载图片
-            from datetime import datetime
-            import os
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            safe_title = "".join(c for c in title if c.isalnum() or c in (' ', '-', '_')).rstrip()[:20]
-            filename = f"article_coze_{safe_title}_{timestamp}.jpg"
-            image_path = os.path.join(self.cache_folder, filename)
-            img_resp = requests.get(image_url, timeout=30)
-            if img_resp.status_code == 200:
-                with open(image_path, 'wb') as f:
-                    f.write(img_resp.content)
-                logger.info(f"Coze文章配图生成成功: {image_path}")
-                return image_path
-            else:
-                logger.error(f"Coze图片下载失败，状态码: {img_resp.status_code}")
-                return None
-        except Exception as e:
-            logger.error(f"Coze生成文章配图时发生错误: {str(e)}")
-            return None
+    # Coze功能已移除
     
     def _generate_with_dashscope_v2(self, title: str, description: str = "", dashscope_params: dict = None) -> Optional[str]:
         """新版：使用阿里云百炼SDK生成图片，支持正/反向提示词、图片比例、采样步数等参数"""
@@ -316,356 +327,23 @@ class ImageService:
             logger.error(f"阿里云百炼生成文章配图时发生错误: {str(e)}")
             return None
     
-    def _search_with_pexels(self, title: str, description: str = "", article_content: str = "", ai_model: str = "gemini",
-                           orientation: str = "landscape", size: str = "large", 
-                           per_page: int = 5, image_index: int = 1, total_images: int = 1) -> Optional[str]:
-        """
-        使用Pexels搜索图片
-        :param title: 文章标题
-        :param description: 文章描述
-        :param article_content: 文章内容（用于AI生成搜索提示词）
-        :param ai_model: AI模型 (gemini, deepseek, dashscope) - 用于生成搜索提示词
-        :param orientation: 图片方向 (landscape, portrait, square)
-        :param size: 图片大小 (large, medium, small)
-        :param per_page: 每页结果数量
-        :param image_index: 当前图片索引（从1开始）
-        :param total_images: 总图片数量
-        :return: 图片文件路径
-        """
-        try:
-            logger.info(f"开始使用Pexels搜索图片，标题: {title}, AI模型: {ai_model}, 图片索引: {image_index}/{total_images}")
-            
-            # 获取Pexels API密钥
-            from services.config_service import ConfigService
-            config_service = ConfigService()
-            pexels_config = config_service.get_pexels_config()
-            
-            if not pexels_config.get('api_key'):
-                logger.error("Pexels API密钥未配置")
-                return None
-            
-            pexels_api_key = pexels_config['api_key']
-            
-            # 使用指定AI模型生成搜索提示词
-            search_query = self._generate_pexels_search_query_with_ai(title, description, article_content, ai_model, image_index, total_images)
-            
-            if not search_query:
-                logger.warning("AI生成搜索提示词失败，使用备用关键词")
-                search_query = self._build_pexels_search_query(title, description)
-            
-            # 构建API请求参数
-            params = {
-                'query': search_query,
-                'orientation': orientation,
-                'size': size,
-                'per_page': per_page,
-                'page': 1
-            }
-            
-            headers = {
-                'Authorization': pexels_api_key
-            }
-            
-            # 发送API请求
-            response = requests.get(
-                'https://api.pexels.com/v1/search',
-                params=params,
-                headers=headers,
-                timeout=AppConfig.API_TIMEOUT
-            )
-            
-            logger.info(f"Pexels API响应状态码: {response.status_code}")
-            
-            if response.status_code == 200:
-                data = response.json()
-                photos = data.get('photos', [])
-                
-                if not photos:
-                    logger.warning("Pexels搜索未找到相关图片")
-                    return None
-                
-                logger.info(f"Pexels搜索到 {len(photos)} 张图片")
-                
-                # 随机选择一张图片，避免总是选择第一张
-                import random
-                if len(photos) > 1:
-                    # 如果有多个结果，随机选择（但避免选择第一张，增加多样性）
-                    selected_index = random.randint(1, min(len(photos) - 1, 3))  # 在前4张中随机选择（除了第1张）
-                else:
-                    selected_index = 0
-                
-                photo = photos[selected_index]
-                photo_url = photo.get('src', {}).get('large2x') or photo.get('src', {}).get('large')
-                
-                if not photo_url:
-                    logger.error("Pexels图片URL获取失败")
-                    return None
-                
-                logger.info(f"选择了第{selected_index + 1}张图片（共{len(photos)}张）")
-                
-                # 下载图片
-                image_path = self._download_pexels_image(photo_url, title)
-                
-                if image_path:
-                    logger.info(f"Pexels图片下载成功: {image_path}")
-                    return image_path
-                else:
-                    logger.error("Pexels图片下载失败")
-                    return None
-                    
-            else:
-                logger.error(f"Pexels API请求失败，状态码: {response.status_code}, 响应: {response.text}")
-                return None
-                
-        except Exception as e:
-            logger.error(f"Pexels搜索图片时发生错误: {str(e)}")
-            return None
+    # Pexels功能已移除
     
-    def _generate_pexels_search_query_with_ai(self, title: str, description: str = "", article_content: str = "", ai_model: str = "gemini", image_index: int = 1, total_images: int = 1) -> Optional[str]:
-        """
-        使用AI生成Pexels搜索提示词
-        :param title: 文章标题
-        :param description: 文章描述
-        :param article_content: 文章内容
-        :param ai_model: AI模型 (gemini, deepseek, dashscope)
-        :param image_index: 当前图片索引（从1开始）
-        :param total_images: 总图片数量
-        :return: AI生成的搜索提示词
-        """
-        try:
-            # 构建用于AI分析的文本内容
-            analysis_text = title
-            if description:
-                analysis_text += f"\n描述: {description}"
-            if article_content:
-                # 提取文章前100字左右的内容用于分析
-                content_preview = self._extract_content_preview(article_content, 100)
-                analysis_text += f"\n文章内容预览: {content_preview}"
-            # 构建AI提示词
-            prompt = PromptManager.pexels_search_prompt(analysis_text, image_index, total_images)
-            # 根据选择的AI模型调用相应的服务
-            if ai_model == "gemini":
-                search_query = self._generate_with_gemini_ai(prompt)
-            elif ai_model == "deepseek":
-                search_query = self._generate_with_deepseek_ai(prompt)
-            elif ai_model == "dashscope":
-                search_query = self._generate_with_dashscope_ai(prompt)
-            else:
-                logger.warning(f"不支持的AI模型: {ai_model}，使用Gemini作为默认")
-                search_query = self._generate_with_gemini_ai(prompt)
-            if search_query:
-                # 清理和验证搜索提示词
-                search_query = self._clean_search_query(search_query)
-                logger.info(f"使用{ai_model}生成的Pexels搜索提示词: {search_query}")
-                return search_query
-            else:
-                logger.error(f"{ai_model}生成搜索提示词失败")
-                return None
-        except Exception as e:
-            logger.error(f"AI生成Pexels搜索提示词时发生错误: {str(e)}")
-            return None
+    # Pexels相关AI搜索功能已移除
     
-    def _extract_content_preview(self, content: str, max_chars: int = 100) -> str:
-        """
-        提取文章内容预览
-        :param content: 文章内容
-        :param max_chars: 最大字符数
-        :return: 内容预览
-        """
-        try:
-            # 清理HTML标签
-            import re
-            clean_content = re.sub(r'<[^>]+>', '', content)
-            # 移除多余空白
-            clean_content = re.sub(r'\s+', ' ', clean_content).strip()
-            
-            # 截取指定长度
-            if len(clean_content) <= max_chars:
-                return clean_content
-            else:
-                # 在合适的位置截断，避免截断单词
-                preview = clean_content[:max_chars]
-                last_space = preview.rfind(' ')
-                if last_space > max_chars * 0.7:  # 如果空格位置合理
-                    preview = preview[:last_space]
-                return preview + "..."
-                
-        except Exception as e:
-            logger.error(f"提取内容预览时发生错误: {str(e)}")
-            return content[:max_chars] if content else ""
+    # Pexels相关辅助功能已移除
     
-    def _generate_with_gemini_ai(self, prompt: str) -> Optional[str]:
-        """
-        使用Gemini AI生成搜索提示词
-        :param prompt: AI提示词
-        :return: 生成的搜索提示词
-        """
-        try:
-            client = self._get_gemini_client()
-            response = client.models.generate_content(
-                model=AppConfig.GEMINI_DEFAULT_MODEL,
-                contents=prompt
-            )
-            
-            if response and response.text:
-                return response.text.strip()
-            else:
-                logger.error("Gemini AI生成搜索提示词失败，响应为空")
-                return None
-                
-        except Exception as e:
-            logger.error(f"Gemini AI生成搜索提示词时发生错误: {str(e)}")
-            return None
+    # Pexels相关AI功能已移除
     
-    def _generate_with_deepseek_ai(self, prompt: str) -> Optional[str]:
-        """
-        使用DeepSeek AI生成搜索提示词
-        :param prompt: AI提示词
-        :return: 生成的搜索提示词
-        """
-        try:
-            from services.deepseek_service import DeepSeekService
-            from services.config_service import ConfigService
-            
-            config_service = ConfigService()
-            deepseek_config = config_service.get_deepseek_config()
-            
-            if not deepseek_config.get('api_key'):
-                logger.error("DeepSeek API密钥未配置")
-                return None
-            
-            deepseek_service = DeepSeekService()
-            deepseek_service.set_api_key(deepseek_config['api_key'])
-            model_name = deepseek_config.get('model', 'deepseek-chat')
-            
-            search_query = deepseek_service.generate_content(prompt, model_name)
-            return search_query
-            
-        except Exception as e:
-            logger.error(f"DeepSeek AI生成搜索提示词时发生错误: {str(e)}")
-            return None
+    # Pexels相关AI功能已移除
     
-    def _generate_with_dashscope_ai(self, prompt: str) -> Optional[str]:
-        """
-        使用阿里云百炼AI生成搜索提示词
-        :param prompt: AI提示词
-        :return: 生成的搜索提示词
-        """
-        try:
-            from services.dashscope_service import DashScopeService
-            from services.config_service import ConfigService
-            
-            config_service = ConfigService()
-            dashscope_config = config_service.get_dashscope_config()
-            
-            if not dashscope_config.get('api_key'):
-                logger.error("阿里云百炼API密钥未配置")
-                return None
-            
-            dashscope_service = DashScopeService(dashscope_config['api_key'])
-            model_name = dashscope_config.get('model', 'qwen-turbo')
-            
-            result = dashscope_service.generate_content(prompt, model_name, max_tokens=200)
-            if result.get('success') and result.get('content'):
-                return result['content'].strip()
-            else:
-                logger.error(f"阿里云百炼生成搜索提示词失败: {result.get('message', '未知错误')}")
-                return None
-                
-        except Exception as e:
-            logger.error(f"阿里云百炼AI生成搜索提示词时发生错误: {str(e)}")
-            return None
+    # Pexels相关AI功能已移除
     
-    def _clean_search_query(self, search_query: str) -> str:
-        """
-        清理和验证搜索提示词
-        :param search_query: 原始搜索提示词
-        :return: 清理后的搜索提示词
-        """
-        try:
-            # 移除多余的标点符号和特殊字符
-            import re
-            cleaned = re.sub(r'[^\w\s]', '', search_query)
-            # 移除多余空白
-            cleaned = re.sub(r'\s+', ' ', cleaned).strip()
-            # 转换为小写
-            cleaned = cleaned.lower()
-            
-            # 验证关键词数量
-            keywords = cleaned.split()
-            if len(keywords) < 1:
-                return "business technology"
-            elif len(keywords) > 4:
-                cleaned = ' '.join(keywords[:4])
-            
-            return cleaned
-            
-        except Exception as e:
-            logger.error(f"清理搜索提示词时发生错误: {str(e)}")
-            return "business technology"
+    # Pexels相关辅助功能已移除
     
-    def _build_pexels_search_query(self, title: str, description: str = "") -> str:
-        """
-        构建Pexels搜索关键词
-        :param title: 文章标题
-        :param description: 文章描述
-        :return: 搜索关键词
-        """
-        # 从标题中提取关键词
-        keywords = []
-        
-        # 移除常见的无意义词汇
-        stop_words = ['的', '了', '在', '是', '有', '和', '与', '或', '但', '而', '如果', '因为', '所以', '如何', '什么', '为什么', '怎么', '哪些', '这个', '那个', '这些', '那些']
-        
-        # 简单的关键词提取
-        title_words = title.replace('《', '').replace('》', '').replace('：', ' ').replace(':', ' ').split()
-        
-        for word in title_words:
-            if len(word) > 1 and word not in stop_words:
-                keywords.append(word)
-        
-        # 如果关键词太少，添加一些通用词汇
-        if len(keywords) < 2:
-            keywords.extend(['business', 'technology', 'innovation'])
-        
-        # 组合搜索关键词
-        search_query = ' '.join(keywords[:3])  # 最多使用3个关键词
-        
-        logger.info(f"Pexels搜索关键词: {search_query}")
-        return search_query
+    # Pexels相关辅助功能已移除
     
-    def _download_pexels_image(self, image_url: str, title: str) -> Optional[str]:
-        """
-        下载Pexels图片
-        :param image_url: 图片URL
-        :param title: 文章标题（用于生成文件名）
-        :return: 图片文件路径
-        """
-        try:
-            # 生成文件名
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            safe_title = "".join(c for c in title if c.isalnum() or c in (' ', '-', '_')).rstrip()[:20]
-            filename = f"article_pexels_{safe_title}_{timestamp}.jpg"
-            image_path = os.path.join(self.cache_folder, filename)
-            
-            logger.debug(f"Pexels图片保存路径: {image_path}")
-            
-            # 下载图片
-            response = requests.get(image_url, timeout=AppConfig.API_TIMEOUT)
-            
-            if response.status_code == 200:
-                with open(image_path, 'wb') as f:
-                    f.write(response.content)
-                
-                logger.info(f"Pexels图片下载成功: {image_path}")
-                return image_path
-            else:
-                logger.error(f"Pexels图片下载失败，状态码: {response.status_code}")
-                return None
-                
-        except Exception as e:
-            logger.error(f"下载Pexels图片时发生错误: {str(e)}")
-            return None
+    # Pexels相关辅助功能已移除
     
     def validate_image_file(self, image_path: str) -> bool:
         """
@@ -868,22 +546,85 @@ class ImageService:
             logger.error(f"处理配图时发生错误: {str(e)}")
             return content  # 出错时返回原始内容
     
-    def _generate_prompt_with_ai(self, ai_model, prompt):
+    def _generate_prompt_with_ai(self, ai_model, prompt, match_info=None):
         """
         用指定AI大模型润色/扩写生图提示词
+        增强版：针对体育文章，确保输出包含两个球队元素
+        
+        :param ai_model: AI模型名称
+        :param prompt: 中文提示词
+        :param match_info: 比赛信息（可选，用于增强提示词）
+        :return: 英文生图提示词
         """
         try:
+            # 如果是体育文章，增强提示词要求
+            enhanced_prompt = prompt
+            if match_info:
+                home_team = match_info.get('home_team', '')
+                away_team = match_info.get('away_team', '')
+                if home_team and away_team:
+                    enhanced_prompt = f"""{prompt}
+
+重要提醒：
+- 必须确保图片包含两个球队的元素：{home_team} 和 {away_team}
+- 如果提示包含女球迷，必须同时包含穿着两个球队球衣的女球迷
+- 图片必须展现两队对抗的视觉效果
+- 使用专业的美术术语，确保提示词详细且具体"""
+            
+            # 添加输出格式要求
+            final_prompt = f"""请将以下中文图片生成需求转换为专业的英文图片生成提示词（prompt）。
+
+{enhanced_prompt}
+
+输出要求：
+1. **必须使用英文输出**
+2. **格式**：主体描述, 风格描述, 色彩描述, 构图描述, 氛围描述, 质量要求
+3. **关键元素必须包含**：
+   - 两个球队的球员形象（如果适用）
+   - 女球迷元素（如果原提示要求）
+   - 体育竞技感
+4. **使用专业术语**：使用专业的美术、摄影、设计术语
+5. **提示词长度**：80-120个英文单词
+6. **不要包含**：markdown标记、代码块、引号等格式符号
+
+示例格式：
+"Professional sports poster, two football teams players in action, beautiful female fans wearing team jerseys, modern minimalist design, team colors, dynamic split-screen composition, competitive atmosphere, high quality, detailed, 4k, suitable for WeChat article cover"
+
+请直接输出英文提示词，不要包含任何其他说明文字、markdown标记或引号："""
+            
             if ai_model == 'gemini':
                 from services.gemini_service import GeminiService
                 gemini = GeminiService()
-                return gemini.generate_content(prompt)
+                ai_output = gemini.generate_content(final_prompt)
             elif ai_model == 'deepseek':
                 from services.deepseek_service import DeepSeekService
                 deepseek = DeepSeekService()
-                return deepseek.generate_content(prompt)
-            # 可扩展更多模型
+                ai_output = deepseek.generate_content(final_prompt)
             else:
                 return prompt
+            
+            # 清理输出（移除可能的markdown标记、引号等）
+            cleaned_output = ai_output.strip()
+            # 移除代码块标记
+            if cleaned_output.startswith('```'):
+                lines = cleaned_output.split('\n')
+                cleaned_output = '\n'.join(lines[1:-1]) if len(lines) > 2 else cleaned_output
+            # 移除引号
+            if cleaned_output.startswith('"') and cleaned_output.endswith('"'):
+                cleaned_output = cleaned_output[1:-1]
+            if cleaned_output.startswith("'") and cleaned_output.endswith("'"):
+                cleaned_output = cleaned_output[1:-1]
+            # 移除多余的说明文字
+            if '提示词' in cleaned_output or 'prompt' in cleaned_output.lower():
+                # 尝试提取引号内的内容
+                import re
+                quoted = re.search(r'["\']([^"\']+)["\']', cleaned_output)
+                if quoted:
+                    cleaned_output = quoted.group(1)
+            
+            logger.info(f"AI润色后的英文提示词: {cleaned_output[:100]}...")
+            return cleaned_output.strip()
+            
         except Exception as e:
             logger.error(f"AI大模型润色prompt失败: {str(e)}")
             return prompt

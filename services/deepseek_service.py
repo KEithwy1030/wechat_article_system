@@ -8,7 +8,7 @@ import logging
 import requests
 from datetime import datetime
 from typing import Optional, Dict, Any
-from config.app_config import AppConfig
+from app_config import AppConfig
 from services.prompt_manager import PromptManager
 
 logger = logging.getLogger(__name__)
@@ -63,7 +63,7 @@ class DeepSeekService:
                 f"{self.api_base_url}/chat/completions",
                 headers=headers,
                 json=payload,
-                timeout=AppConfig.API_TIMEOUT
+                timeout=120
             )
             
             if response.status_code == 200:
@@ -94,7 +94,7 @@ class DeepSeekService:
         """
         char_limit = 20000
         if format_template:
-            prompt = f"{PromptManager.ROLE_PROMPT}\n请根据以下HTML格式模板，生成一篇关于‘{title}’的公众号文章，排版核心风格要与模板一致，字数约{word_count}字，且最终输出的HTML内容总字符数必须小于等于{char_limit}字符。模板如下：\n{format_template}"
+            prompt = f"{PromptManager.ROLE_PROMPT}\n请根据以下HTML格式模板，生成一篇关于'{title}'的公众号文章，排版核心风格要与模板一致，字数约{word_count}字，且最终输出的HTML内容总字符数必须小于等于{char_limit}字符。\n\n重要：文章标题《{title}》将由系统自动处理，请直接输出文章正文内容，不要重复标题。\n\n模板如下：\n{format_template}"
         else:
             prompt = PromptManager.article_prompt(title, word_count, char_limit)
         
@@ -205,6 +205,17 @@ class DeepSeekService:
         os.environ["DEEPSEEK_API_KEY"] = api_key
         logger.info("DeepSeek API密钥已更新")
     
+    def set_config(self, api_key: str, model: str = None):
+        """
+        设置DeepSeek配置（API密钥和模型）
+        :param api_key: API密钥
+        :param model: 模型名称
+        """
+        os.environ["DEEPSEEK_API_KEY"] = api_key
+        if model:
+            self.default_model = model
+        logger.info(f"DeepSeek配置已更新 - 模型: {model or self.default_model}")
+    
     def get_available_models(self) -> list:
         """获取可用的模型列表"""
         try:
@@ -268,3 +279,6 @@ class DeepSeekService:
             return {
                 'error': str(e)
             }
+
+# 创建全局单例
+deepseek_service = DeepSeekService()

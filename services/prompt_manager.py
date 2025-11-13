@@ -1,6 +1,6 @@
 """
 AI提示词管理模块
-统一管理所有AI模型的提示词模板（文章、摘要、生图、Pexels搜索等）
+统一管理所有AI模型的提示词模板（文章、摘要、生图等）
 """
 
 class PromptManager:
@@ -15,7 +15,49 @@ class PromptManager:
     @staticmethod
     def article_prompt(title, word_count=None, char_limit=20000):
         word_count_str = f"{word_count}字" if word_count else "1200-1800字"
-        return f"""{PromptManager.ROLE_PROMPT}\n请帮我撰写一篇关于《{title}》的微信公众号文章。请严格遵循您将在下方接收到的HTML排版结构和样式风格进行输出（请直接输出完整的HTML代码，不包含其他说明文字）。\n\n---\n**重要：微信公众号文章内容输出规范**\n1.  **HTML格式：** 必须使用标准的HTML标签和内联`style`属性。\n2.  **禁止JavaScript：** 禁止使用任何JavaScript代码，包括`<script>`标签、`javascript:`协议的链接以及所有HTML元素的`on`事件属性（如`onclick`, `onload`等）。\n4.  **字符数限制：** 最终输出的HTML内容总字符数必须小于等于{char_limit}字符，且可见文本字数约为{word_count_str}。请注意HTML标签和样式本身会占用字符，请在保证排版效果的前提下尽量简洁。\n5.  **禁止外部CSS/内嵌<style>：** 禁止使用外部CSS文件或在HTML中嵌入`<style>`标签，所有样式必须通过元素的`style=""`属性以内联形式声明。\n6.  **`backdrop-filter` 兼容性：** 如果样式定义中包含`backdrop-filter`属性，请注意其在微信Webview中的兼容性可能不稳定，建议作为可选效果，或考虑使用半透明背景替代。\n\nHTML标签使用规范：\n- <h2>、<h3> 用于段落标题\n- <p> 用于正文段落\n- <ul>、<li> 用于要点列表\n- <blockquote> 用于引用或重要观点\n- <strong> 用于强调重要内容\n\n请直接输出HTML格式的文章内容，不要包含其他说明文字或代码块之外的任何文本："""
+        return f"""{PromptManager.ROLE_PROMPT}\n请帮我撰写一篇关于《{title}》的微信公众号文章。
+
+**重要：输出格式要求**
+1. **使用Markdown格式**：必须使用标准的Markdown语法输出文章内容
+2. **不要包含文章标题**：文章标题《{title}》将由系统自动处理，请直接输出文章正文内容
+3. **字数要求**：文章正文约{word_count_str}（不含图片占位符）
+4. **图片占位符**：需要插入图片的地方使用 `![图片描述](IMAGE_PLACEHOLDER_N)`，其中N为序号（1,2,3...）
+
+**Markdown格式规范：**
+- 使用 `##` 或 `###` 标记段落标题
+- 使用 `**文本**` 标记重点内容
+- 使用 `> 引用内容` 标记引用或重要观点
+- 使用 `1. 条目` 或 `- 条目` 标记列表
+- 使用空行分隔段落
+
+**示例输出：**
+```markdown
+## 引言
+
+这是文章的开头段落...
+
+![图片描述](IMAGE_PLACEHOLDER_1)
+
+## 核心观点
+
+这里是核心内容，**重点强调**的文字。
+
+> 这是一个重要的引用或观点
+
+### 详细分析
+
+1. 第一个要点
+2. 第二个要点
+3. 第三个要点
+
+![图片描述](IMAGE_PLACEHOLDER_2)
+
+## 总结
+
+文章的总结部分...
+```
+
+请直接输出Markdown格式的文章内容，不要包含其他说明文字或代码块标记："""
 
     # 摘要生成提示词（通用）
     @staticmethod
@@ -50,7 +92,172 @@ class PromptManager:
         base_prompt += "\n\n请用英文输出提示词。"
         return base_prompt
 
-    # Pexels图片搜索AI提示词
+    # 体育文章专用图片提示词（包含两个球队元素）
     @staticmethod
-    def pexels_search_prompt(analysis_text, image_index=1, total_images=1):
-        return f"""{PromptManager.ROLE_PROMPT}\n请根据以下文章信息，生成适合在Pexels图片库中搜索相关图片的英文关键词。\n\n文章信息：\n{analysis_text}\n\n图片信息：\n- 这是第{image_index}张图片，总共需要{total_images}张图片\n- 每张图片应该有不同的视觉风格和内容重点\n- 请为这张图片生成独特的关键词组合\n\n要求：\n1. 生成2-4个英文关键词，用空格分隔\n2. 关键词要准确反映文章的主题和内容\n3. 关键词要适合图片搜索，避免抽象概念\n4. 优先使用具体的、可视化的词汇\n5. 考虑文章的情感色彩和风格\n6. 关键词要简洁明了，适合搜索引擎\n7. 根据图片位置生成不同的关键词组合，避免重复\n\n关键词变化建议：\n- 第1张图片：关注文章的核心主题和主要概念\n- 第2张图片：关注具体的应用场景或案例\n- 第3张图片：关注技术细节或方法\n- 第4张图片：关注结果或效果\n- 第5张图片：关注未来趋势或展望\n\n示例：\n- 如果文章关于\"人工智能在医疗领域的应用\"：\n  - 第1张图片：\"medical technology artificial intelligence\"\n  - 第2张图片：\"hospital doctor patient care\"\n  - 第3张图片：\"medical diagnosis treatment\"\n  - 第4张图片：\"healthcare innovation research\"\n  - 第5张图片：\"future medicine technology\"\n\n请直接输出关键词，不要包含任何其他说明文字：""" 
+    def image_prompt_for_sports_match(match_info: dict, article_section: str = "", image_index: int = 1, include_fans: bool = True):
+        """
+        为体育竞彩文章生成包含两个球队元素的图片提示词
+        
+        :param match_info: 比赛信息字典，包含 home_team, away_team, league 等
+        :param article_section: 文章段落内容（用于判断图片类型）
+        :param image_index: 图片索引（1=封面图，2+ =内文配图）
+        :param include_fans: 是否包含女球迷元素（吸引眼球）
+        :return: 中文提示词（后续由AI转换为英文）
+        """
+        home_team = match_info.get('home_team', '主队')
+        away_team = match_info.get('away_team', '客队')
+        league = match_info.get('league', '足球联赛')
+        
+        # 根据图片索引和文章内容判断图片类型
+        if image_index == 1:
+            # 封面图：强调对抗感和吸引力
+            image_type = "封面海报"
+            composition = "左右分屏或对角线构图，展现两队对抗感"
+            if include_fans:
+                elements = f"包含两个球队的球员形象，以及穿着两队球衣的美丽女球迷，营造激烈对抗和吸引眼球的视觉效果"
+            else:
+                elements = f"包含两个球队的球员形象，展现激烈对抗的视觉效果"
+        else:
+            # 内文配图：根据段落内容判断
+            section_lower = article_section.lower() if article_section else ""
+            if '预测' in section_lower or '分析' in section_lower:
+                image_type = "数据分析图"
+                composition = "数据可视化风格，包含比分预测元素"
+                elements = f"两个球队的球员形象，配合数据图表元素"
+            elif '历史' in section_lower or '交锋' in section_lower:
+                image_type = "历史对比图"
+                composition = "历史感、对比风格"
+                elements = f"两个球队的球员形象，展现历史交锋感"
+            elif '球员' in section_lower or '阵容' in section_lower:
+                image_type = "球员特写图"
+                composition = "球员特写、运动风格"
+                elements = f"两个球队的关键球员形象"
+            else:
+                image_type = "体育海报"
+                composition = "现代体育海报风格"
+                if include_fans:
+                    elements = f"两个球队的球员形象，以及穿着两队球衣的美丽女球迷"
+                else:
+                    elements = f"两个球队的球员形象"
+        
+        base_prompt = f"""为体育竞彩文章生成{image_type}风格的配图。
+
+比赛信息：
+- 主队：{home_team}
+- 客队：{away_team}
+- 联赛：{league}
+
+图片要求：
+1. **必须包含的元素**：{elements}
+2. **构图方式**：{composition}
+3. **视觉风格**：现代、专业、具有体育感和竞技感
+4. **色彩方案**：使用两队主色调或联赛标志色，营造对抗氛围
+5. **氛围营造**：激烈对抗、竞技感、专业感
+6. **适合场景**：微信公众号文章配图，吸引读者点击
+7. **图片质量**：高清、专业、细节丰富
+8. **无文字要求**：纯视觉表达，不包含文字或数字
+
+{"9. **女球迷元素**：如果包含女球迷，要求美丽、健康、穿着球队球衣，展现球迷热情，但不要过于暴露或低俗" if include_fans else ""}
+
+{"段落内容参考：" + article_section[:200] + "（请根据此内容调整图片元素）" if article_section else ""}
+
+请用英文输出详细的图片生成提示词，格式要求：
+- 主体描述（subject）：两个球队的球员、女球迷等
+- 风格描述（style）：现代体育海报、专业摄影风格
+- 色彩描述（color scheme）：两队主色调
+- 构图描述（composition）：左右分屏、对角线等
+- 氛围描述（atmosphere）：激烈对抗、竞技感
+- 质量要求（quality）：高清、专业、细节丰富
+
+提示词长度：80-120个英文单词，使用专业的美术和摄影术语。"""
+        
+        return base_prompt
+
+    # 女球迷照片专用提示词（真实、吸引眼球）
+    @staticmethod
+    def female_fan_image_prompt(match_info: dict, team_side: str = "home", reference_image_description: str = ""):
+        """
+        为体育文章生成真实、吸引眼球的女球迷照片提示词
+        
+        :param match_info: 比赛信息字典，包含 home_team, away_team, league 等
+        :param team_side: "home" 或 "away"，表示主队或客队
+        :param reference_image_description: 参考图片的描述（如果提供）
+        :return: 中文提示词（后续由AI转换为英文）
+        """
+        team_name = match_info.get('home_team' if team_side == 'home' else 'away_team', '球队')
+        league = match_info.get('league', '足球联赛')
+        
+        # 根据球队确定球衣颜色
+        if '英格兰' in team_name or 'England' in team_name:
+            jersey_colors = "白色和红色（St. George's Cross colors）"
+        elif '塞尔维亚' in team_name or 'Serbia' in team_name:
+            jersey_colors = "红色和蓝色（Serbian flag colors）"
+        else:
+            jersey_colors = "球队主色调"
+        
+        base_prompt = f"""为{team_name}球队生成一张真实、吸引眼球的女球迷照片。
+
+**核心要求：**
+1. **真实性**：照片必须看起来像真实拍摄的照片，不能有明显的AI生成痕迹，不能"一眼假"
+2. **吸引力**：针对男性观众，必须非常吸引眼球，不能平庸
+3. **合规性**：在合规的前提下，尽可能吸引眼球
+
+**人物要求：**
+1. **外貌特征**：
+   - 长相甜美、妩媚、有魅力
+   - 身材曲线优美：胸部丰满、腰细、身材比例好
+   - 整体形象健康、阳光、有活力
+   - 不能是平庸或普通的外貌
+
+2. **服装要求**：
+   - 穿着{team_name}球队的球衣（{jersey_colors}）
+   - 球衣可以是紧身款，展现身材曲线
+   - 可以搭配短裤或短裙，展现腿部线条
+   - 服装要时尚、有吸引力，但不能过于暴露
+
+3. **表情和姿态**：
+   - 表情可以是甜美微笑、妩媚、自信等
+   - 姿态要自然、有魅力，展现球迷热情
+   - 可以有一些吸引人的动作（如挥手、比心等），但要自然不做作
+
+**拍摄要求：**
+1. **摄影风格**：
+   - 专业摄影风格，像真实拍摄的照片
+   - 高质量、细节丰富、真实感强
+   - 自然光线或专业打光，避免过度处理
+
+2. **背景**：
+   - 可以是球场、看台、或简洁的背景
+   - 背景要真实，不能有明显的AI生成痕迹
+
+3. **构图**：
+   - 人物为主体，突出女球迷的形象
+   - 可以是半身照或全身照
+   - 构图要专业，有视觉吸引力
+
+**质量要求：**
+- 高清、专业、细节丰富
+- 真实感强，不能"一眼假"
+- 适合微信公众号文章配图
+- 吸引眼球，提升点击率
+
+{"参考图片描述：" + reference_image_description if reference_image_description else ""}
+
+请用英文输出详细的图片生成提示词，要求：
+- 使用专业摄影术语
+- 明确描述人物特征（外貌、身材、表情）
+- 明确描述服装和姿态
+- 强调真实感和吸引力
+- 提示词长度：100-150个英文单词
+- 使用专业的美术和摄影术语，确保生成的照片真实、吸引人
+
+**特别强调：**
+- 必须强调"professional photography", "realistic", "authentic", "not AI-generated"
+- 必须强调"attractive", "eye-catching", "appealing to male audience"
+- 必须强调人物特征："beautiful", "curvaceous", "full bust", "slim waist", "well-proportioned"
+- 必须强调"NOT average or ordinary looking"
+- 必须避免明显的AI生成痕迹"""
+        
+        return base_prompt
+
+    # Pexels搜索提示词已移除 

@@ -1,0 +1,50 @@
+# Zeabur 忽略文件（类似 .gitignore）
+# 这些文件不会上传到 Zeabur
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# 日志和缓存（运行时生成）
+logs/
+*.log
+cache/
+*.db-journal
+
+# 本地数据（使用持久化卷）
+data/
+*.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 本地驱动（Docker 中会自动下载）
+drivers/
+
+# 临时文件
+*.tmp
+*.bak
+backups/
+
+# Docker 相关（Zeabur 会自己构建）
+docker-compose.yml
+.dockerignore
+
+# 文档（可选，不影响运行）
+*.md
+docs/
+

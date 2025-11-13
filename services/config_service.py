@@ -33,14 +33,73 @@ class ConfigService:
             "deepseek_model": "deepseek-chat",
             "dashscope_api_key": "",
             "dashscope_model": "qwen-turbo",
-            "pexels_api_key": "",
-            "coze_token": "",  # 新增coze令牌
+            "zhipu_api_key": "",
+            "zhipu_model": "glm-4.5-air",
+            # Pexels和Coze配置已移除
             "image_model": "gemini",  # 默认生图模型
             "author": "AI笔记",
             "content_source_url": "",
             "created_at": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             "updated_at": datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         }
+    
+    def _deep_merge(self, base: Dict[str, Any], update: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        深度合并字典，避免嵌套字典被覆盖
+        递归合并嵌套字典，保留未更新的字段
+        """
+        result = base.copy()
+        
+        for key, value in update.items():
+            # 如果两个值都是字典，递归合并
+            if (key in result and 
+                isinstance(result[key], dict) and 
+                isinstance(value, dict)):
+                result[key] = self._deep_merge(result[key], value)
+            else:
+                # 否则直接更新（包括列表、字符串等）
+                result[key] = value
+        
+        return result
+    
+    def _backup_config(self) -> bool:
+        """备份当前配置文件"""
+        try:
+            if not os.path.exists(self.config_file):
+                return True  # 文件不存在，无需备份
+            
+            # 获取配置文件的绝对路径
+            config_abs_path = os.path.abspath(self.config_file)
+            config_dir = os.path.dirname(config_abs_path)
+            
+            # 创建备份目录（在配置文件同目录下）
+            backup_dir = os.path.join(config_dir, 'backups')
+            os.makedirs(backup_dir, exist_ok=True)
+            
+            # 生成备份文件名（带时间戳）
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            backup_file = os.path.join(backup_dir, f'config_backup_{timestamp}.json')
+            
+            # 复制文件
+            import shutil
+            shutil.copy2(config_abs_path, backup_file)
+            
+            # 只保留最近10个备份
+            backup_files = sorted(
+                [f for f in os.listdir(backup_dir) if f.startswith('config_backup_') and f.endswith('.json')],
+                reverse=True
+            )
+            for old_backup in backup_files[10:]:
+                try:
+                    os.remove(os.path.join(backup_dir, old_backup))
+                except Exception:
+                    pass
+            
+            logger.info(f"配置已备份到: {backup_file}")
+            return True
+        except Exception as e:
+            logger.warning(f"配置备份失败: {str(e)}")
+            return False  # 备份失败不影响保存操作
     
     def load_config(self) -> Dict[str, Any]:
         """加载配置"""
@@ -50,9 +109,8 @@ class ConfigService:
                     config = json.load(f)
                     logger.info("从文件加载配置成功")
                     
-                # 合并默认配置，确保所有必要字段存在
-                merged_config = self.default_config.copy()
-                merged_config.update(config)
+                # 使用深度合并，确保嵌套配置正确合并
+                merged_config = self._deep_merge(self.default_config.copy(), config)
                 
                 return merged_config
             else:
@@ -64,29 +122,37 @@ class ConfigService:
             return self.default_config.copy()
     
     def save_config(self, config_data: Dict[str, Any]) -> bool:
-        """保存配置"""
+        """
+        保存配置
+        使用深度合并，避免嵌套配置被覆盖
+        """
         try:
             # 验证配置数据
             if not self._validate_config(config_data):
                 logger.error("配置数据验证失败")
                 return False
             
+            # 备份当前配置
+            self._backup_config()
+            
             # 加载现有配置
             current_config = self.load_config()
             
-            # 更新配置
-            current_config.update(config_data)
-            current_config["updated_at"] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            # 使用深度合并更新配置，避免嵌套字典被覆盖
+            merged_config = self._deep_merge(current_config, config_data)
+            
+            # 更新修改时间
+            merged_config["updated_at"] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             
             # 如果是首次创建，设置创建时间
-            if not os.path.exists(self.config_file):
-                current_config["created_at"] = current_config["updated_at"]
+            if "created_at" not in merged_config or not merged_config.get("created_at"):
+                merged_config["created_at"] = merged_config["updated_at"]
             
             # 保存到文件
             with open(self.config_file, 'w', encoding='utf-8') as f:
-                json.dump(current_config, f, ensure_ascii=False, indent=4)
+                json.dump(merged_config, f, ensure_ascii=False, indent=4)
             
-            logger.info("配置保存成功")
+            logger.info("配置保存成功（已使用深度合并）")
             return True
             
         except Exception as e:
@@ -95,7 +161,8 @@ class ConfigService:
     
     def _validate_config(self, config_data: Dict[str, Any]) -> bool:
         """验证配置数据"""
-        required_fields = ['wechat_appid', 'wechat_appsecret', 'gemini_api_key']
+        # 所有配置字段都是可选的，支持分步配置
+        required_fields = []
         
         for field in required_fields:
             if field in config_data:
@@ -134,49 +201,54 @@ class ConfigService:
     def get_wechat_config(self) -> Dict[str, str]:
         """获取微信配置"""
         config = self.load_config()
+        # 优先从嵌套结构获取，如果不存在则从扁平结构获取（向后兼容）
+        wechat_config = config.get('wechat', {})
         return {
-            'appid': config.get('wechat_appid', ''),
-            'appsecret': config.get('wechat_appsecret', '')
+            'appid': wechat_config.get('appId', '') or config.get('wechat_appid', ''),
+            'appsecret': wechat_config.get('appSecret', '') or config.get('wechat_appsecret', '')
         }
     
     def get_gemini_config(self) -> Dict[str, str]:
         """获取Gemini配置"""
         config = self.load_config()
+        # 优先从嵌套结构获取，如果不存在则从扁平结构获取（向后兼容）
+        gemini_config = config.get('gemini', {})
         return {
-            'api_key': config.get('gemini_api_key', ''),
-            'model': config.get('gemini_model', 'gemini-2.5-flash')
+            'api_key': gemini_config.get('apiKey', '') or config.get('gemini_api_key', ''),
+            'model': gemini_config.get('model', '') or config.get('gemini_model', 'gemini-2.5-flash')
         }
     
     def get_deepseek_config(self) -> Dict[str, str]:
         """获取DeepSeek配置"""
         config = self.load_config()
+        # 优先从嵌套结构获取，如果不存在则从扁平结构获取（向后兼容）
+        deepseek_config = config.get('deepseek', {})
         return {
-            'api_key': config.get('deepseek_api_key', ''),
-            'model': config.get('deepseek_model', 'deepseek-chat')
+            'api_key': deepseek_config.get('apiKey', '') or config.get('deepseek_api_key', ''),
+            'model': deepseek_config.get('model', '') or config.get('deepseek_model', 'deepseek-chat')
         }
     
     def get_dashscope_config(self) -> Dict[str, str]:
         """获取阿里云百炼配置"""
         config = self.load_config()
+        # 优先从嵌套结构获取，如果不存在则从扁平结构获取（向后兼容）
+        dashscope_config = config.get('dashscope', {})
         return {
-            'api_key': config.get('dashscope_api_key', ''),
-            'model': config.get('dashscope_model', 'qwen-turbo')
+            'api_key': dashscope_config.get('apiKey', '') or config.get('dashscope_api_key', ''),
+            'model': dashscope_config.get('model', '') or config.get('dashscope_model', 'qwen-turbo')
         }
     
-    def get_pexels_config(self) -> Dict[str, str]:
-        """获取Pexels配置"""
+    def get_zhipu_config(self) -> Dict[str, str]:
+        """获取智谱AI配置"""
         config = self.load_config()
+        # 优先从嵌套结构获取，如果不存在则从扁平结构获取（向后兼容）
+        zhipu_config = config.get('zhipu', {})
         return {
-            'api_key': config.get('pexels_api_key', '')
+            'api_key': zhipu_config.get('apiKey', '') or config.get('zhipu_api_key', ''),
+            'model': zhipu_config.get('model', '') or config.get('zhipu_model', 'glm-4.5-air')
         }
     
-    def get_coze_config(self) -> Dict[str, str]:
-        """获取Coze配置"""
-        config = self.load_config()
-        return {
-            'coze_token': config.get('coze_token', ''),
-            'coze_workflow_id': config.get('coze_workflow_id', '')
-        }
+    # Pexels和Coze配置方法已移除
     
     def get_author_config(self) -> Dict[str, str]:
         """获取作者配置"""
@@ -206,10 +278,12 @@ class ConfigService:
         dashscope_config = self.get_dashscope_config()
         return bool(dashscope_config['api_key'])
     
-    def is_pexels_configured(self) -> bool:
-        """检查Pexels是否已配置"""
-        pexels_config = self.get_pexels_config()
-        return bool(pexels_config['api_key'])
+    def is_zhipu_configured(self) -> bool:
+        """检查智谱AI是否已配置"""
+        zhipu_config = self.get_zhipu_config()
+        return bool(zhipu_config['api_key'])
+    
+    # Pexels配置检查已移除
     
     def get_config_status(self) -> Dict[str, bool]:
         """获取配置状态"""
@@ -218,7 +292,8 @@ class ConfigService:
             'gemini_configured': self.is_gemini_configured(),
             'deepseek_configured': self.is_deepseek_configured(),
             'dashscope_configured': self.is_dashscope_configured(),
-            'pexels_configured': self.is_pexels_configured(),
+            'zhipu_configured': self.is_zhipu_configured(),
+            # Pexels配置状态已移除
             'config_file_exists': os.path.exists(self.config_file)
         }
 
@@ -272,3 +347,6 @@ class ConfigService:
                 except Exception as e:
                     logger.error(f"access_token自动刷新线程异常: {str(e)}")
                     time.sleep(60)
+
+# 创建全局单例实例
+config_service = ConfigService()

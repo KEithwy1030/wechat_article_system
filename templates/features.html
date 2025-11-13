@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>功能清单 - 微信公众号AI自动发布系统</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="/"><i class="bi bi-robot"></i> 返回首页</a>
+      <span class="navbar-text">功能清单（仅前端预览）</span>
+    </div>
+  </nav>
+
+  <div class="container mt-4">
+    <div class="row">
+      <div class="col-12">
+        <h3 class="mb-3">系统功能一览</h3>
+        <p class="text-muted">你可以勾选想保留的功能（仅前端预览，不保存）。</p>
+      </div>
+    </div>
+
+    <div class="row g-3" id="featureList"></div>
+
+    <div class="mt-4">
+      <a href="/prompt-manager" class="btn btn-primary">打开提示词管理</a>
+      <a href="/" class="btn btn-outline-secondary ms-2">返回首页</a>
+    </div>
+  </div>
+
+  <script>
+    const features = [
+      { key:'config_wechat', name:'微信公众号配置', area:'配置管理', desc:'设置AppID/AppSecret并测试连接' },
+      { key:'config_gemini', name:'Gemini AI配置', area:'配置管理', desc:'设置API密钥/模型并测试' },
+      { key:'config_deepseek', name:'DeepSeek AI配置', area:'配置管理', desc:'设置API密钥/模型并测试' },
+      { key:'config_dashscope', name:'阿里云百炼配置', area:'配置管理', desc:'设置API密钥/模型并测试' },
+      { key:'config_pexels', name:'Pexels图片配置', area:'配置管理', desc:'设置图片搜索API并测试' },
+      { key:'config_coze', name:'Coze工作流配置', area:'配置管理', desc:'设置Coze令牌与工作流' },
+      { key:'author_info', name:'作者信息', area:'配置管理', desc:'作者名/原文链接' },
+      { key:'article_title', name:'文章标题', area:'文章生成', desc:'输入标题作为生成主题' },
+      { key:'model_switch', name:'AI模型选择', area:'文章生成', desc:'选择写作模型' },
+      { key:'image_model', name:'生图模型与提示词', area:'文章生成', desc:'选择图片来源与描述' },
+      { key:'word_count', name:'文章字数', area:'文章生成', desc:'设置目标字数' },
+      { key:'image_count', name:'配图数量', area:'文章生成', desc:'设置图片数量' },
+      { key:'style_template', name:'样式库模板', area:'文章生成', desc:'套用预置排版模板' },
+      { key:'custom_html', name:'自定义HTML模板', area:'文章生成', desc:'自定义文章HTML结构' },
+      { key:'generate', name:'生成文章', area:'文章生成', desc:'调用AI写作并入历史' },
+      { key:'history', name:'历史记录', area:'文章生成', desc:'查看生成历史' },
+      { key:'stats', name:'统计信息', area:'文章生成', desc:'生成数与已发布统计' },
+      { key:'preview', name:'文章预览', area:'预览发布', desc:'右侧预览面板' },
+      { key:'copy_html', name:'复制HTML', area:'预览发布', desc:'复制预览HTML' },
+      { key:'mass_send', name:'同时群发', area:'预览发布', desc:'群发给所有粉丝（需资质）' },
+      { key:'publish', name:'发布到微信', area:'预览发布', desc:'走公众号发布接口' },
+      { key:'save_draft', name:'保存草稿', area:'预览发布', desc:'保存到草稿箱' },
+      { key:'publish_history', name:'发布历史', area:'预览发布', desc:'查看发布成功记录' },
+      { key:'prompt_manager', name:'提示词管理', area:'扩展', desc:'可视化管理提示词模板' },
+      { key:'prompt_workbench', name:'提示词工作台（新）', area:'扩展', desc:'只读→编辑→一键预览（可在提示词管理页实现）' },
+      { key:'features', name:'功能清单（本页）', area:'扩展', desc:'列出全部功能开关' }
+    ];
+
+    function render(){
+      const box = document.getElementById('featureList');
+      box.innerHTML = '';
+      features.forEach(f=>{
+        const col = document.createElement('div');
+        col.className = 'col-12 col-md-6 col-lg-4';
+        col.innerHTML = `
+          <div class="card h-100">
+            <div class="card-body d-flex flex-column">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="mb-0">${f.name}</h6>
+                <span class="badge bg-secondary">${f.area}</span>
+              </div>
+              <p class="text-muted small flex-grow-1">${f.desc}</p>
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="sw_${f.key}" checked>
+                <label class="form-check-label" for="sw_${f.key}">显示</label>
+              </div>
+            </div>
+          </div>`;
+        box.appendChild(col);
+      })
+    }
+    document.addEventListener('DOMContentLoaded', render);
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
+
+

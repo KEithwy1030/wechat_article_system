@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# 日志和缓存
+logs/
+*.log
+cache/
+*.db-journal
+
+# 配置文件（敏感信息，通过环境变量注入）
+config.json
+backups/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# 本地驱动（Docker 中会自动下载）
+drivers/
+
+# 临时文件
+*.tmp
+*.bak
+

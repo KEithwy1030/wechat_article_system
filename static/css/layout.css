@@ -7,10 +7,137 @@ body {
     min-height: 100vh;
     font-family: 'Microsoft YaHei', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     color: #2c3e50;
+    margin: 0;
+    padding: 0;
 }
 
 .container-fluid {
     padding: 1rem;
+    max-width: 100%;
+}
+
+/* 主布局容器 */
+.main-layout {
+    display: flex;
+    gap: 1.5rem;
+    min-height: calc(100vh - 120px);
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* 侧边栏样式 */
+.sidebar {
+    width: 280px;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 1rem;
+    padding: 1.5rem;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+    height: fit-content;
+    position: sticky;
+    top: 1rem;
+}
+
+.sidebar-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid #f8f9fa;
+}
+
+.sidebar-header i {
+    font-size: 1.5rem;
+    margin-right: 0.75rem;
+    color: #667eea;
+}
+
+.sidebar-header h5 {
+    margin: 0;
+    font-weight: 700;
+    font-size: 1.25rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* 侧边栏导航 */
+.sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.nav-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.nav-section-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0 0 0.5rem 0;
+    padding: 0 0.5rem;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    text-decoration: none;
+    color: #495057;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    border: 1px solid transparent;
+}
+
+.nav-item:hover {
+    background: rgba(102, 126, 234, 0.1);
+    color: #667eea;
+    transform: translateX(4px);
+}
+
+.nav-item.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.nav-item i {
+    margin-right: 0.75rem;
+    font-size: 1.1rem;
+    width: 20px;
+    text-align: center;
+}
+
+.nav-item.external {
+    opacity: 0.8;
+}
+
+.nav-item.external:hover {
+    opacity: 1;
+}
+
+.nav-info {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem 1rem;
+    color: #6c757d;
+    font-size: 0.875rem;
+    background: rgba(108, 117, 125, 0.1);
+    border-radius: 0.375rem;
+    margin-bottom: 0.25rem;
+}
+
+.nav-info i {
+    margin-right: 0.5rem;
+    font-size: 0.875rem;
 }
 
 /* 导航栏 */
@@ -38,63 +165,57 @@ body {
 
 /* 主内容区域 */
 .main-content {
+    flex: 1;
     background: rgba(255, 255, 255, 0.95);
     border-radius: 1rem;
     padding: 1.5rem;
     backdrop-filter: blur(10px);
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+    overflow-y: auto;
 }
 
-/* 三列布局 */
-.column-container {
-    display: flex;
-    gap: 1.5rem;
-    min-height: 70vh;
+/* 内容面板 */
+.content-panel {
+    display: none;
+    animation: fadeIn 0.3s ease-in-out;
 }
 
-.column {
-    flex: 1;
-    background: rgba(255, 255, 255, 0.8);
-    border-radius: 0.75rem;
-    padding: 1.5rem;
-    backdrop-filter: blur(5px);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-    transition: all 0.3s ease;
+.content-panel.active {
+    display: block;
 }
 
-.column:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
-}
-
-/* 列标题 */
-.column-header {
-    display: flex;
-    align-items: center;
-    margin-bottom: 1.5rem;
-    padding-bottom: 1rem;
+.panel-header {
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
     border-bottom: 2px solid #f8f9fa;
 }
 
-.column-header h5 {
-    margin: 0;
+.panel-header i {
+    font-size: 1.5rem;
+    margin-right: 0.75rem;
+    color: #667eea;
+}
+
+.panel-header h4 {
+    margin: 0 0 0.5rem 0;
     font-weight: 700;
-    font-size: 1.1rem;
+    font-size: 1.5rem;
+    color: #2c3e50;
 }
 
-.column-header .bi {
-    margin-right: 0.5rem;
-    font-size: 1.25rem;
+.panel-header p {
+    margin: 0;
+    color: #6c757d;
+    font-size: 0.95rem;
 }
 
-/* 配置列 */
-.config-column .column-header {
-    color: #198754;
-    border-bottom-color: rgba(25, 135, 84, 0.2);
-}
-
+/* 配置区域样式 */
 .config-section {
     margin-bottom: 2rem;
+    background: rgba(248, 249, 250, 0.5);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    border: 1px solid #e9ecef;
 }
 
 .config-section h6 {
@@ -103,26 +224,162 @@ body {
     margin-bottom: 1rem;
     padding-bottom: 0.5rem;
     border-bottom: 1px solid #e9ecef;
+    display: flex;
+    align-items: center;
 }
 
-/* 生成列 */
-.generate-column .column-header {
-    color: #0dcaf0;
-    border-bottom-color: rgba(13, 202, 240, 0.2);
+.config-section h6 i {
+    margin-right: 0.5rem;
+    color: #667eea;
 }
 
+/* 生成区域样式 */
 .generate-section {
     margin-bottom: 1.5rem;
+    background: rgba(248, 249, 250, 0.5);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    border: 1px solid #e9ecef;
 }
 
-/* 预览列 */
-.preview-column .column-header {
-    color: #fd7e14;
-    border-bottom-color: rgba(253, 126, 20, 0.2);
+.generate-section h6 {
+    color: #495057;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    align-items: center;
 }
 
+.generate-section h6 i {
+    margin-right: 0.5rem;
+    color: #667eea;
+}
+
+/* 预览区域样式 */
 .preview-section {
     margin-bottom: 1.5rem;
+    background: rgba(248, 249, 250, 0.5);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    border: 1px solid #e9ecef;
+}
+
+.preview-section h6 {
+    color: #495057;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    align-items: center;
+}
+
+.preview-section h6 i {
+    margin-right: 0.5rem;
+    color: #667eea;
+}
+
+/* 增强生成器区域样式 */
+.enhanced-section {
+    margin-bottom: 1.5rem;
+    background: rgba(248, 249, 250, 0.5);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    border: 1px solid #e9ecef;
+}
+
+.enhanced-section h6 {
+    color: #495057;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    align-items: center;
+}
+
+.enhanced-section h6 i {
+    margin-right: 0.5rem;
+    color: #667eea;
+}
+
+/* 提示词管理区域样式 */
+.prompt-section {
+    margin-bottom: 1.5rem;
+    background: rgba(248, 249, 250, 0.5);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    border: 1px solid #e9ecef;
+}
+
+.prompt-section h6 {
+    color: #495057;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    align-items: center;
+}
+
+.prompt-section h6 i {
+    margin-right: 0.5rem;
+    color: #667eea;
+}
+
+/* 功能清单区域样式 */
+.features-section {
+    margin-bottom: 1.5rem;
+    background: rgba(248, 249, 250, 0.5);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    border: 1px solid #e9ecef;
+}
+
+.features-section h6 {
+    color: #495057;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    align-items: center;
+}
+
+.features-section h6 i {
+    margin-right: 0.5rem;
+    color: #667eea;
+}
+
+/* 表单开关样式 */
+.form-check-input:checked {
+    background-color: #667eea;
+    border-color: #667eea;
+}
+
+.form-check-input:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 0.25rem rgba(102, 126, 234, 0.25);
+}
+
+/* 滑块样式 */
+.form-range::-webkit-slider-thumb {
+    background: #667eea;
+}
+
+.form-range::-moz-range-thumb {
+    background: #667eea;
+    border: none;
+}
+
+.form-range:focus::-webkit-slider-thumb {
+    box-shadow: 0 0 0 1px #fff, 0 0 0 0.25rem rgba(102, 126, 234, 0.25);
+}
+
+.form-range:focus::-moz-range-thumb {
+    box-shadow: 0 0 0 1px #fff, 0 0 0 0.25rem rgba(102, 126, 234, 0.25);
 }
 
 /* 文章预览区域 */
@@ -295,41 +552,279 @@ body {
     background-color: #6c757d !important;
 }
 
-/* 响应式设计 */
-@media (max-width: 1200px) {
-    .column-container {
+/* 响应式设计 - 移动端优化 */
+@media (max-width: 768px) {
+    /* 移动端：将侧边栏改为顶部导航 */
+    .main-layout {
         flex-direction: column;
-        gap: 1rem;
+        gap: 0;
     }
     
-    .column {
-        padding: 1rem;
+    /* 侧边栏转换为汉堡菜单 */
+    .sidebar {
+        position: fixed;
+        top: 0;
+        left: -100%;
+        width: 280px;
+        height: 100vh;
+        background: white;
+        z-index: 1000;
+        transition: left 0.3s ease;
+        overflow-y: auto;
+        box-shadow: 2px 0 10px rgba(0,0,0,0.1);
     }
-}
-
-@media (max-width: 768px) {
+    
+    .sidebar.active {
+        left: 0;
+    }
+    
+    /* 显示汉堡菜单按钮 */
+    .mobile-menu-toggle {
+        display: block !important;
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        z-index: 999;
+        font-size: 24px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    /* 遮罩层 */
+    .sidebar-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 999;
+    }
+    
+    .sidebar-overlay.active {
+        display: block;
+    }
+    
+    /* 主内容区全宽 */
+    .main-content {
+        width: 100%;
+        padding: 0.75rem;
+    }
+    
+    /* 减小容器内边距 */
     .container-fluid {
         padding: 0.5rem;
     }
     
+    /* 优化导航栏 */
     .navbar {
-        margin-bottom: 1rem;
+        margin-bottom: 0.75rem;
+        padding: 0.5rem;
     }
     
+    .navbar-brand {
+        font-size: 0.9rem;
+    }
+    
+    /* 优化侧边栏标题 */
+    .sidebar-header h5 {
+        font-size: 0.95rem;
+    }
+    
+    .nav-section-title {
+        font-size: 0.7rem;
+    }
+    
+    /* 优化导航项 */
+    .nav-item {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.85rem;
+    }
+    
+    .nav-item i {
+        font-size: 0.9rem;
+        margin-right: 0.5rem;
+    }
+    
+    /* 优化主内容区 */
     .main-content {
-        padding: 1rem;
+        padding: 0.75rem;
     }
     
-    .column {
-        padding: 1rem;
+    .panel-header h4 {
+        font-size: 1.1rem;
     }
     
-    .column-header {
+    .panel-header p {
+        font-size: 0.85rem;
+    }
+    
+    /* 优化配置区域 */
+    .config-section,
+    .generate-section,
+    .preview-section,
+    .enhanced-section,
+    .prompt-section,
+    .features-section {
+        padding: 1rem;
         margin-bottom: 1rem;
     }
     
+    .config-section h6,
+    .generate-section h6,
+    .preview-section h6,
+    .enhanced-section h6,
+    .prompt-section h6,
+    .features-section h6 {
+        font-size: 1rem;
+        margin-bottom: 0.75rem;
+    }
+    
+    /* 优化表单元素 */
+    .form-label {
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+    }
+    
+    .form-control,
+    .form-select {
+        font-size: 16px; /* 防止iOS自动缩放 */
+        padding: 0.75rem;
+        margin-bottom: 0.75rem;
+    }
+    
+    .form-text {
+        font-size: 0.85rem;
+        margin-top: -0.5rem;
+        margin-bottom: 0.75rem;
+    }
+    
+    /* 优化按钮 */
+    .btn {
+        padding: 0.75rem 1.25rem;
+        font-size: 1rem;
+        min-height: 44px; /* iOS推荐的最小点击区域 */
+    }
+    
+    .btn-sm {
+        padding: 0.5rem 1rem;
+        font-size: 0.9rem;
+        min-height: 36px;
+    }
+    
+    /* 优化文章预览区 */
     .article-preview-content {
         padding: 1rem;
+        font-size: 1rem;
+        line-height: 1.6;
+    }
+    
+    /* 优化行间距 */
+    .row.mb-3 {
+        margin-bottom: 1rem !important;
+    }
+    
+    .mb-3 {
+        margin-bottom: 1rem !important;
+    }
+}
+
+@media (max-width: 480px) {
+    /* 超小屏幕：进一步缩小侧边栏 */
+    .sidebar {
+        width: 160px;
+        padding: 0.5rem;
+    }
+    
+    .sidebar-header h5 {
+        font-size: 0.85rem;
+    }
+    
+    .nav-section-title {
+        font-size: 0.65rem;
+    }
+    
+    .nav-item {
+        padding: 0.4rem 0.6rem;
+        font-size: 0.75rem;
+    }
+    
+    .nav-item i {
+        font-size: 0.8rem;
+        margin-right: 0.4rem;
+    }
+    
+    /* 隐藏系统信息以节省空间 */
+    .nav-section:has(.nav-info) {
+        display: none;
+    }
+    
+    /* 进一步缩小主内容区 */
+    .main-content {
+        padding: 0.5rem;
+    }
+    
+    .panel-header h4 {
+        font-size: 1rem;
+    }
+    
+    .panel-header p {
+        font-size: 0.75rem;
+    }
+    
+    .config-section h6,
+    .generate-section h6,
+    .preview-section h6,
+    .enhanced-section h6,
+    .prompt-section h6,
+    .features-section h6 {
+        font-size: 0.8rem;
+    }
+    
+    .form-label {
+        font-size: 0.75rem;
+    }
+    
+    .form-control,
+    .form-select {
+        font-size: 0.75rem;
+        padding: 0.4rem;
+    }
+    
+    .form-text {
+        font-size: 0.7rem;
+    }
+    
+    .btn {
+        padding: 0.4rem 0.6rem;
+        font-size: 0.75rem;
+    }
+    
+    .btn-sm {
+        padding: 0.3rem 0.5rem;
+        font-size: 0.7rem;
+    }
+    
+    /* 优化导航栏 */
+    .navbar-brand {
+        font-size: 0.8rem;
+    }
+    
+    /* 优化底部 */
+    .footer {
+        padding: 0.75rem 0.5rem;
+        font-size: 0.7rem;
     }
 }
 

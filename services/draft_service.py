@@ -7,7 +7,7 @@ import requests
 import json
 import logging
 from typing import Dict, Any, Optional
-from config.app_config import AppConfig
+from app_config import AppConfig
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +104,7 @@ class DraftService:
     
     def build_draft_data(self, title: str, content: str, author: str = "AI笔记",
                         digest: str = "", thumb_media_id: str = "", 
-                        content_source_url: str = "") -> Dict[str, Any]:
+                        content_source_url: str = "", show_cover_pic: int = 1) -> Dict[str, Any]:
         """
         构建草稿数据
         :param title: 文章标题
@@ -113,22 +113,28 @@ class DraftService:
         :param digest: 摘要
         :param thumb_media_id: 封面图片media_id
         :param content_source_url: 原文链接
+        :param show_cover_pic: 是否显示封面图片
         :return: 草稿数据
         """
         logger.info(f"构建草稿数据，标题: {title}")
         
+        # 构建文章数据
+        article_data = {
+            "title": title,
+            "author": author,
+            "digest": digest,
+            "content": content,
+            "content_source_url": content_source_url,
+            "show_cover_pic": show_cover_pic,
+            "need_open_comment": 0,
+            "only_fans_can_comment": 0
+        }
+        
+        # 微信API要求必须有thumb_media_id，如果没有则使用空字符串
+        article_data["thumb_media_id"] = thumb_media_id or ""
+        
         draft_data = {
-            "articles": [{
-                "title": title,
-                "author": author,
-                "digest": digest,
-                "content": content,
-                "content_source_url": content_source_url,
-                "thumb_media_id": thumb_media_id,
-                "show_cover_pic": 1 if thumb_media_id else 0,
-                "need_open_comment": 0,
-                "only_fans_can_comment": 0
-            }]
+            "articles": [article_data]
         }
         
         logger.debug(f"草稿数据构建完成: {json.dumps(draft_data, ensure_ascii=False, indent=2)}")

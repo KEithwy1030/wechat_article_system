@@ -7,11 +7,15 @@ import requests
 import json
 import logging
 import time
+import re
 from datetime import datetime
 from typing import Dict, Any, Optional
-from config.app_config import AppConfig
+from app_config import AppConfig
 
 logger = logging.getLogger(__name__)
+
+# 最近一次微信API错误中解析出的出口IP（例如40164 invalid ip返回）
+LAST_WECHAT_ERROR_IP: Optional[str] = None
 
 class WeChatService:
     """微信服务类"""
@@ -60,7 +64,23 @@ class WeChatService:
                 error_code = result.get('errcode', 'unknown')
                 error_msg = result.get('errmsg', 'unknown error')
                 logger.error(f"获取access_token失败，错误码: {error_code}, 错误信息: {error_msg}")
-                return None
+                
+                # 捕获并记录微信返回错误中的出口IP，便于前端提示正确的白名单IP
+                global LAST_WECHAT_ERROR_IP
+                try:
+                    ip_match = re.search(r"(\d{1,3}(?:\.\d{1,3}){3})", error_msg or "")
+                    if ip_match:
+                        LAST_WECHAT_ERROR_IP = ip_match.group(1)
+                        logger.info(f"记录最近一次微信错误IP: {LAST_WECHAT_ERROR_IP}")
+                except Exception:
+                    pass
+
+                # 返回错误信息以便上层处理
+                return {
+                    'error': True,
+                    'error_code': error_code,
+                    'error_msg': error_msg
+                }
                 
         except requests.exceptions.RequestException as e:
             logger.error(f"获取access_token网络请求失败: {str(e)}")
@@ -185,3 +205,6 @@ class WeChatService:
                 'success': False,
                 'message': '微信API连接失败，请检查AppID和AppSecret是否正确'
             }
+
+# 创建全局单例实例
+wechat_service = WeChatService()

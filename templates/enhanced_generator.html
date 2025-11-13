@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>增强版文章生成器 - 微信公众号AI自动发布系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.24.1/themes/prism.min.css" rel="stylesheet">
+    <style>
+        .feature-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+        .feature-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .progress-container {
+            display: none;
+        }
+        .result-container {
+            display: none;
+        }
+        .metadata-card {
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+            padding: 15px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">微信公众号AI自动发布系统</a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/">返回主页</a>
+                <a class="nav-link" href="/prompt-manager">提示词管理</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-12">
+                <h1>🚀 增强版文章生成器</h1>
+                <p class="text-muted">集成N8N工作流逻辑，实现高质量文章生成</p>
+            </div>
+        </div>
+
+        <!-- 功能特色展示 -->
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="feature-card text-center">
+                    <h5>🔍 智能数据搜集</h5>
+                    <p class="text-muted">自动搜集全网最新比赛资讯，为文章提供数据支撑</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="feature-card text-center">
+                    <h5>📝 结构化分析</h5>
+                    <p class="text-muted">生成专业的赛前情报摘要，确保内容质量</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="feature-card text-center">
+                    <h5>⚙️ 自动排版优化</h5>
+                    <p class="text-muted">自动套用历史文章格式，输出适配公众号的成稿</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 生成表单 -->
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>📖 文章生成配置</h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="enhancedGeneratorForm">
+                            <div class="mb-3">
+                                <label class="form-label">文章标题</label>
+                                <input type="text" class="form-control" id="articleTitle" 
+                                       placeholder="例如：曼城 vs 阿森纳 - 英超焦点战深度分析" required>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">AI模型</label>
+                                        <select class="form-select" id="aiModel">
+                                            <option value="gemini">Gemini (推荐)</option>
+                                            <option value="deepseek">DeepSeek</option>
+                                            <option value="dashscope">阿里云百炼</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label">目标字数</label>
+                                        <input type="number" class="form-control" id="wordCount" 
+                                               value="1500" min="800" max="3000">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="includeDataCollection" checked>
+                                    <label class="form-check-label" for="includeDataCollection">
+                                        启用智能数据搜集（推荐）
+                                    </label>
+                                </div>
+                                <div class="form-text">
+                                    自动搜集全网最新比赛资讯，为文章提供数据支撑
+                                </div>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="bi bi-magic"></i> 生成增强版文章
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- 进度显示 -->
+                <div class="progress-container" id="progressContainer">
+                    <div class="card mt-3">
+                        <div class="card-body">
+                            <h6>🚀 正在生成文章...</h6>
+                            <div class="progress">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                     role="progressbar" style="width: 0%"></div>
+                            </div>
+                            <div class="mt-2">
+                                <small class="text-muted" id="progressText">初始化...</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 结果显示 -->
+                <div class="result-container" id="resultContainer">
+                    <div class="card mt-3">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h6>📄 生成结果</h6>
+                            <div>
+                                <button class="btn btn-sm btn-outline-primary" onclick="copyResult()">
+                                    复制内容
+                                </button>
+                                <button class="btn btn-sm btn-success" onclick="saveToDraft()">
+                                    保存到草稿箱
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="metadata-card">
+                                <h6>📊 生成元数据</h6>
+                                <div id="metadataContent"></div>
+                            </div>
+                            <div class="mt-3">
+                                <h6>📝 文章内容</h6>
+                                <div id="articleContent" style="max-height: 500px; overflow-y: auto; 
+                                    border: 1px solid #e0e0e0; padding: 15px; border-radius: 4px;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <!-- 使用说明 -->
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h6>💡 使用说明</h6>
+                    </div>
+                    <div class="card-body">
+                        <ol class="small">
+                            <li><strong>输入标题</strong>：描述要分析的具体比赛</li>
+                            <li><strong>选择AI模型</strong>：不同模型有不同特色</li>
+                            <li><strong>设置字数</strong>：控制文章长度</li>
+                            <li><strong>启用数据搜集</strong>：获取最新资讯</li>
+                            <li><strong>生成文章</strong>：AI自动完成全流程</li>
+                        </ol>
+                        <div class="alert alert-info mt-3">
+                            <small>
+                                <strong>提示：</strong>系统会自动完成数据搜集与排版优化，
+                                生成内容开箱即用，减少手动调整工作量。
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentResult = null;
+
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            setupFormHandler();
+        });
+
+        function setupFormHandler() {
+            document.getElementById('enhancedGeneratorForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                generateEnhancedArticle();
+            });
+        }
+
+        function generateEnhancedArticle() {
+            const formData = {
+                title: document.getElementById('articleTitle').value,
+                ai_model: document.getElementById('aiModel').value,
+                word_count: parseInt(document.getElementById('wordCount').value),
+                include_data_collection: document.getElementById('includeDataCollection').checked
+            };
+
+            // 显示进度
+            showProgress();
+            
+            // 发送请求
+            fetch('/api/generate-enhanced-article', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(formData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                hideProgress();
+                if (data.success) {
+                    currentResult = data;
+                    displayResult(data);
+                    showAlert('文章生成成功！', 'success');
+                } else {
+                    showAlert(data.message || '生成失败', 'danger');
+                }
+            })
+            .catch(error => {
+                hideProgress();
+                console.error('生成失败:', error);
+                showAlert('生成失败，请重试', 'danger');
+            });
+        }
+
+        function showProgress() {
+            document.getElementById('progressContainer').style.display = 'block';
+            document.getElementById('resultContainer').style.display = 'none';
+            
+            // 模拟进度更新
+            const progressBar = document.querySelector('.progress-bar');
+            const progressText = document.getElementById('progressText');
+            
+            let progress = 0;
+            const messages = [
+                '初始化生成环境...',
+                '搜集最新比赛数据...',
+                '生成赛前情报摘要...',
+                '选择最佳写作风格...',
+                '撰写文章内容...',
+                '优化文章结构...',
+                '完成生成！'
+            ];
+            
+            const interval = setInterval(() => {
+                progress += 15;
+                if (progress > 100) progress = 100;
+                
+                progressBar.style.width = progress + '%';
+                progressText.textContent = messages[Math.floor(progress / 15)] || messages[messages.length - 1];
+                
+                if (progress >= 100) {
+                    clearInterval(interval);
+                }
+            }, 500);
+        }
+
+        function hideProgress() {
+            document.getElementById('progressContainer').style.display = 'none';
+        }
+
+        function displayResult(result) {
+            document.getElementById('resultContainer').style.display = 'block';
+            
+            // 显示元数据
+            const metadata = result.metadata || {};
+            const metadataHtml = `
+                <div class="row">
+                    <div class="col-6">
+                        <strong>搜索内容长度:</strong> ${metadata.search_content_length || 0} 字符
+                    </div>
+                    <div class="col-6">
+                        <strong>历史参考:</strong> ${metadata.yesterday_content_available ? '✓' : '✗'}
+                    </div>
+                </div>
+                <div class="row mt-2">
+                    <div class="col-12">
+                        <strong>生成时间:</strong> ${new Date(metadata.generated_at).toLocaleString()}
+                    </div>
+                </div>
+            `;
+            document.getElementById('metadataContent').innerHTML = metadataHtml;
+            
+            // 显示文章内容
+            document.getElementById('articleContent').innerHTML = result.content;
+        }
+
+        function copyResult() {
+            if (currentResult && currentResult.content) {
+                navigator.clipboard.writeText(currentResult.content).then(() => {
+                    showAlert('内容已复制到剪贴板', 'success');
+                }).catch(() => {
+                    showAlert('复制失败', 'danger');
+                });
+            }
+        }
+
+        function saveToDraft() {
+            if (!currentResult) {
+                showAlert('没有可保存的内容', 'warning');
+                return;
+            }
+
+            // 调用保存草稿API
+            const draftData = {
+                title: currentResult.title,
+                content: currentResult.content,
+                ai_model: document.getElementById('aiModel').value,
+                word_count: parseInt(document.getElementById('wordCount').value)
+            };
+
+            fetch('/api/save-draft', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(draftData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert('已保存到草稿箱！', 'success');
+                } else {
+                    showAlert(data.message || '保存失败', 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('保存失败:', error);
+                showAlert('保存失败，请重试', 'danger');
+            });
+        }
+
+        function showAlert(message, type) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+            alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.body.appendChild(alertDiv);
+            
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.parentNode.removeChild(alertDiv);
+                }
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

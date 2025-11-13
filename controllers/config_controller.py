@@ -98,6 +98,12 @@ class ConfigController:
                 saved_config = self.config_service.load_config()
                 logger.info(f"保存后读取的配置: {saved_config}")
                 
+                # 🔥 立即更新环境变量，让配置立即生效
+                self._update_environment_variables(saved_config)
+                
+                # 🔥 同步更新相关服务的配置
+                self._sync_service_configs(saved_config)
+                
                 logger.info("配置保存成功")
                 return {
                     'success': True,
@@ -124,8 +130,9 @@ class ConfigController:
         
         # 检查必填字段，但允许部分为空以支持分步配置
         required_fields = {
-            'wechat_appid': '微信AppID',
-            'wechat_appsecret': '微信AppSecret', 
+            # 微信公众号配置为可选，不强制验证
+            # 'wechat_appid': '微信AppID',
+            # 'wechat_appsecret': '微信AppSecret', 
             # 其他不做强制校验，coze_token 不做强制校验
             # coze_workflow_id 不做强制校验
         }
@@ -162,6 +169,75 @@ class ConfigController:
         logger.info("配置数据验证通过")
         return {'valid': True}
     
+    def _update_environment_variables(self, config_data: Dict[str, Any]):
+        """保存配置后立即更新环境变量，让配置立即生效"""
+        try:
+            import os
+            
+            # 更新DeepSeek API Key - 优先从嵌套结构获取
+            deepseek_key = config_data.get('deepseek', {}).get('apiKey', '') or config_data.get('deepseek_api_key', '')
+            if deepseek_key:
+                os.environ['DEEPSEEK_API_KEY'] = deepseek_key
+                logger.info("✅ DeepSeek API Key环境变量已更新")
+            elif 'deepseek' in config_data or 'deepseek_api_key' in config_data:
+                # 如果配置中明确设置为空，也清理环境变量
+                if 'DEEPSEEK_API_KEY' in os.environ:
+                    del os.environ['DEEPSEEK_API_KEY']
+                logger.info("✅ DeepSeek API Key环境变量已清理")
+            
+            # 更新Gemini API Key - 优先从嵌套结构获取
+            gemini_key = config_data.get('gemini', {}).get('apiKey', '') or config_data.get('gemini_api_key', '')
+            if gemini_key:
+                os.environ['GEMINI_API_KEY'] = gemini_key
+                logger.info("✅ Gemini API Key环境变量已更新")
+            elif 'gemini' in config_data or 'gemini_api_key' in config_data:
+                # 如果配置中明确设置为空，也清理环境变量
+                if 'GEMINI_API_KEY' in os.environ:
+                    del os.environ['GEMINI_API_KEY']
+                logger.info("✅ Gemini API Key环境变量已清理")
+            
+            # 更新DashScope API Key - 优先从嵌套结构获取
+            dashscope_key = config_data.get('dashscope', {}).get('apiKey', '') or config_data.get('dashscope_api_key', '')
+            if dashscope_key:
+                os.environ['DASHSCOPE_API_KEY'] = dashscope_key
+                logger.info("✅ DashScope API Key环境变量已更新")
+            elif 'dashscope' in config_data or 'dashscope_api_key' in config_data:
+                if 'DASHSCOPE_API_KEY' in os.environ:
+                    del os.environ['DASHSCOPE_API_KEY']
+                logger.info("✅ DashScope API Key环境变量已清理")
+            
+            # 更新智谱AI API Key - 优先从嵌套结构获取
+            zhipu_key = config_data.get('zhipu', {}).get('apiKey', '') or config_data.get('zhipu_api_key', '')
+            if zhipu_key:
+                os.environ['ZHIPU_API_KEY'] = zhipu_key
+                logger.info("✅ 智谱AI API Key环境变量已更新")
+            elif 'zhipu' in config_data or 'zhipu_api_key' in config_data:
+                if 'ZHIPU_API_KEY' in os.environ:
+                    del os.environ['ZHIPU_API_KEY']
+                logger.info("✅ 智谱AI API Key环境变量已清理")
+            
+            logger.info("✅ 环境变量更新完成")
+            
+        except Exception as e:
+            logger.error(f"更新环境变量失败: {e}")
+    
+    def _sync_service_configs(self, config_data: Dict[str, Any]):
+        """同步更新相关服务的配置"""
+        try:
+            # 同步智谱AI服务配置
+            if 'zhipu_api_key' in config_data:
+                try:
+                    from services.zhipu_service import zhipu_service
+                    zhipu_service.reload_config()
+                    logger.info("✅ 智谱AI服务配置已同步")
+                except Exception as e:
+                    logger.warning(f"同步智谱AI服务配置失败: {e}")
+            
+            logger.info("✅ 服务配置同步完成")
+            
+        except Exception as e:
+            logger.error(f"同步服务配置失败: {e}")
+    
     def test_wechat_connection(self) -> Dict[str, Any]:
         """测试微信连接，并保存access_token等信息到配置"""
         try:
@@ -170,6 +246,19 @@ class ConfigController:
             config = self.config_service.load_config()
             logger.info(f"当前完整配置: {config}")
             wechat_config = self.config_service.get_wechat_config()
+
+            # 允许使用请求体中临时传入的appid/appsecret进行测试（未保存也可测试）
+            try:
+                from flask import request
+                payload = request.get_json(silent=True) or {}
+                temp_appid = payload.get('appid')
+                temp_appsecret = payload.get('appsecret')
+                if temp_appid:
+                    wechat_config['appid'] = temp_appid
+                if temp_appsecret:
+                    wechat_config['appsecret'] = temp_appsecret
+            except Exception:
+                pass
             logger.info(f"微信配置: appid={wechat_config.get('appid', 'None')[:10]}..., appsecret={'已设置' if wechat_config.get('appsecret') else '未设置'}")
             if not wechat_config['appid'] or not wechat_config['appsecret']:
                 logger.error(f"微信配置不完整: appid={bool(wechat_config.get('appid'))}, appsecret={bool(wechat_config.get('appsecret'))}")
@@ -203,6 +292,28 @@ class ConfigController:
                     'message': '微信API连接成功，access_token已保存',
                     'data': config_update
                 }
+            elif token_info and token_info.get('error'):
+                # 处理具体的微信API错误
+                error_code = token_info.get('error_code', 'unknown')
+                error_msg = token_info.get('error_msg', 'unknown error')
+                
+                # 根据错误码提供更具体的提示
+                if error_code == 40164:
+                    user_message = f"IP地址未添加到微信公众号白名单。请将当前IP地址添加到公众号的IP白名单中。"
+                elif error_code == 40013:
+                    user_message = f"AppID无效，请检查AppID是否正确。"
+                elif error_code == 40125:
+                    user_message = f"AppSecret无效，请检查AppSecret是否正确。"
+                else:
+                    user_message = f"微信API错误 (错误码: {error_code}): {error_msg}"
+                
+                logger.error(f"微信API连接测试失败，错误码: {error_code}, 错误信息: {error_msg}")
+                return {
+                    'success': False,
+                    'message': user_message,
+                    'error_code': error_code,
+                    'error_msg': error_msg
+                }
             else:
                 logger.error("微信API连接测试失败，未能获取access_token")
                 return {
@@ -221,28 +332,47 @@ class ConfigController:
         try:
             logger.info("开始测试Gemini AI连接")
             
-            # 获取当前配置
-            config = self.config_service.load_config()
-            logger.info(f"当前完整配置: {config}")
+            # 获取请求数据
+            request_data = request.get_json() or {}
+            logger.info(f"测试连接请求数据: {request_data}")
             
-            gemini_config = self.config_service.get_gemini_config()
-            logger.info(f"Gemini配置: api_key={'已设置' if gemini_config.get('api_key') else '未设置'}, model={gemini_config.get('model', 'None')}")
+            # 优先使用请求中的API密钥，如果没有则从配置文件获取
+            api_key = request_data.get('gemini_api_key', '')
+            model = request_data.get('gemini_model', '')
             
-            if not gemini_config['api_key']:
+            if not api_key:
+                # 从配置文件获取
+                config = self.config_service.load_config()
+                logger.info(f"当前完整配置: {config}")
+                
+                gemini_config = self.config_service.get_gemini_config()
+                logger.info(f"Gemini配置: api_key={'已设置' if gemini_config.get('api_key') else '未设置'}, model={gemini_config.get('model', 'None')}")
+                
+                api_key = gemini_config.get('api_key', '')
+                if not model:
+                    model = gemini_config.get('model', 'gemini-2.5-flash')
+            
+            if not api_key:
                 logger.error(f"Gemini API密钥未配置")
                 return {
                     'success': False,
                     'message': '请先配置Gemini API密钥',
                     'debug_info': {
-                        'has_api_key': bool(gemini_config.get('api_key')),
-                        'config_keys': list(config.keys())
+                        'has_api_key': bool(api_key),
+                        'request_data': request_data
                     }
                 }
             
-            # 设置API密钥
-            self.gemini_service.set_api_key(gemini_config['api_key'])
+            # 如果没有指定模型，使用默认值
+            if not model:
+                model = 'gemini-2.5-flash'
             
-            result = self.gemini_service.test_connection(gemini_config['model'])
+            logger.info(f"Gemini测试参数: api_key={'已设置' if api_key else '未设置'}, model={model}")
+            
+            # 设置API密钥
+            self.gemini_service.set_api_key(api_key)
+            
+            result = self.gemini_service.test_connection(model)
             
             logger.info(f"Gemini连接测试完整结果: {result}")
             return result
@@ -306,28 +436,50 @@ class ConfigController:
         try:
             logger.info("开始测试DeepSeek AI连接")
             
-            # 获取当前配置
-            config = self.config_service.load_config()
-            logger.info(f"当前完整配置: {config}")
+            # 获取请求数据
+            request_data = request.get_json() or {}
+            logger.info(f"测试连接请求数据: {request_data}")
             
-            deepseek_config = self.config_service.get_deepseek_config()
-            logger.info(f"DeepSeek配置: api_key={'已设置' if deepseek_config.get('api_key') else '未设置'}, model={deepseek_config.get('model', 'None')}")
+            # 优先使用请求中的API密钥，如果没有则从配置文件获取
+            api_key = request_data.get('deepseek_api_key', '')
+            model = request_data.get('deepseek_model', '')
             
-            if not deepseek_config['api_key']:
+            logger.info(f"从请求获取的API密钥: '{api_key}' (长度: {len(api_key)})")
+            logger.info(f"从请求获取的模型: '{model}'")
+            
+            if not api_key:
+                # 从配置文件获取
+                config = self.config_service.load_config()
+                logger.info(f"当前完整配置: {config}")
+                
+                deepseek_config = self.config_service.get_deepseek_config()
+                logger.info(f"DeepSeek配置: api_key={'已设置' if deepseek_config.get('api_key') else '未设置'}, model={deepseek_config.get('model', 'None')}")
+                
+                api_key = deepseek_config.get('api_key', '')
+                if not model:
+                    model = deepseek_config.get('model', 'deepseek-chat')
+            
+            if not api_key:
                 logger.error(f"DeepSeek API密钥未配置")
                 return {
                     'success': False,
                     'message': '请先配置DeepSeek API密钥',
                     'debug_info': {
-                        'has_api_key': bool(deepseek_config.get('api_key')),
-                        'config_keys': list(config.keys())
+                        'has_api_key': bool(api_key),
+                        'request_data': request_data
                     }
                 }
             
-            # 设置API密钥
-            self.deepseek_service.set_api_key(deepseek_config['api_key'])
+            # 如果没有指定模型，使用默认值
+            if not model:
+                model = 'deepseek-chat'
             
-            result = self.deepseek_service.test_connection(deepseek_config['model'])
+            logger.info(f"DeepSeek测试参数: api_key={'已设置' if api_key else '未设置'}, model={model}")
+            
+            # 设置API密钥
+            self.deepseek_service.set_api_key(api_key)
+            
+            result = self.deepseek_service.test_connection(model)
             
             logger.info(f"DeepSeek连接测试完整结果: {result}")
             return result
@@ -450,28 +602,47 @@ class ConfigController:
         try:
             logger.info("开始测试阿里云百炼连接")
             
-            # 获取当前配置
-            config = self.config_service.load_config()
-            logger.info(f"当前完整配置: {config}")
+            # 获取请求数据
+            request_data = request.get_json() or {}
+            logger.info(f"测试连接请求数据: {request_data}")
             
-            dashscope_config = self.config_service.get_dashscope_config()
-            logger.info(f"阿里云百炼配置: api_key={'已设置' if dashscope_config.get('api_key') else '未设置'}, model={dashscope_config.get('model', 'None')}")
+            # 优先使用请求中的API密钥，如果没有则从配置文件获取
+            api_key = request_data.get('dashscope_api_key', '')
+            model = request_data.get('dashscope_model', '')
             
-            if not dashscope_config['api_key']:
+            if not api_key:
+                # 从配置文件获取
+                config = self.config_service.load_config()
+                logger.info(f"当前完整配置: {config}")
+                
+                dashscope_config = self.config_service.get_dashscope_config()
+                logger.info(f"阿里云百炼配置: api_key={'已设置' if dashscope_config.get('api_key') else '未设置'}, model={dashscope_config.get('model', 'None')}")
+                
+                api_key = dashscope_config.get('api_key', '')
+                if not model:
+                    model = dashscope_config.get('model', 'qwen-turbo')
+            
+            if not api_key:
                 logger.error(f"阿里云百炼API密钥未配置")
                 return {
                     'success': False,
                     'message': '请先配置阿里云百炼API密钥',
                     'debug_info': {
-                        'has_api_key': bool(dashscope_config.get('api_key')),
-                        'config_keys': list(config.keys())
+                        'has_api_key': bool(api_key),
+                        'request_data': request_data
                     }
                 }
             
-            # 设置API密钥
-            self.dashscope_service = DashScopeService(dashscope_config['api_key'])
+            # 如果没有指定模型，使用默认值
+            if not model:
+                model = 'qwen-turbo'
             
-            result = self.dashscope_service.test_connection(dashscope_config['model'])
+            logger.info(f"阿里云百炼测试参数: api_key={'已设置' if api_key else '未设置'}, model={model}")
+            
+            # 设置API密钥
+            self.dashscope_service = DashScopeService(api_key)
+            
+            result = self.dashscope_service.test_connection(model)
             
             logger.info(f"阿里云百炼连接测试完整结果: {result}")
             return result
@@ -571,62 +742,4 @@ class ConfigController:
                 'message': f'获取调试信息失败: {str(e)}'
             }
     
-    def test_pexels_connection(self) -> Dict[str, Any]:
-        """测试Pexels连接"""
-        try:
-            logger.info("开始测试Pexels连接")
-            
-            # 获取当前配置
-            config = self.config_service.load_config()
-            logger.info(f"当前完整配置: {config}")
-            
-            pexels_config = self.config_service.get_pexels_config()
-            logger.info(f"Pexels配置: api_key={'已设置' if pexels_config.get('api_key') else '未设置'}")
-            
-            if not pexels_config['api_key']:
-                logger.error(f"Pexels API密钥未配置")
-                return {
-                    'success': False,
-                    'message': '请先配置Pexels API密钥',
-                    'debug_info': {
-                        'has_api_key': bool(pexels_config.get('api_key')),
-                        'config_keys': list(config.keys())
-                    }
-                }
-            
-            # 导入图像服务进行测试
-            from services.image_service import ImageService
-            image_service = ImageService()
-            
-            # 测试Pexels搜索功能
-            test_title = "technology"
-            image_path = image_service._search_with_pexels(test_title, "测试图片搜索")
-            
-            if image_path:
-                logger.info(f"Pexels连接测试成功，获取到图片: {image_path}")
-                return {
-                    'success': True,
-                    'message': 'Pexels连接测试成功',
-                    'data': {
-                        'test_title': test_title,
-                        'image_path': image_path,
-                        'config': pexels_config
-                    }
-                }
-            else:
-                logger.warning("Pexels连接测试失败，未获取到图片")
-                return {
-                    'success': False,
-                    'message': 'Pexels连接测试失败，请检查API密钥是否正确',
-                    'data': {
-                        'test_title': test_title,
-                        'config': pexels_config
-                    }
-                }
-            
-        except Exception as e:
-            logger.error(f"测试Pexels连接时发生错误: {str(e)}", exc_info=True)
-            return {
-                'success': False,
-                'message': f'测试失败: {str(e)}'
-            }
+    # Pexels连接测试已移除

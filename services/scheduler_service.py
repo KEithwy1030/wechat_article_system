@@ -7,7 +7,7 @@ from services.draft_service import DraftService
 from services.history_service import HistoryService
 from services.config_service import ConfigService
 import requests
-from config.app_config import AppConfig
+from app_config import AppConfig
 
 logger = logging.getLogger(__name__)
 

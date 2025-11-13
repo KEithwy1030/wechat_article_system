@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Optional, Dict, Any
 from google import genai
 from google.genai import types
-from config.app_config import AppConfig
+from app_config import AppConfig
 from services.prompt_manager import PromptManager
 
 logger = logging.getLogger(__name__)
@@ -22,6 +22,15 @@ class GeminiService:
         self.default_model = AppConfig.GEMINI_DEFAULT_MODEL
         self.image_model = AppConfig.GEMINI_IMAGE_MODEL
         logger.info("Gemini服务初始化完成")
+    
+    def set_config(self, api_key: str = None, model: str = None):
+        """设置配置"""
+        if api_key:
+            os.environ["GEMINI_API_KEY"] = api_key
+        if model:
+            self.image_model = model
+        # 重新创建客户端
+        self.client = None
     
     def _get_client(self) -> genai.Client:
         """获取Gemini客户端"""
@@ -78,7 +87,7 @@ class GeminiService:
         """
         char_limit = 20000
         if format_template:
-            prompt = f"{PromptManager.ROLE_PROMPT}\n请根据以下HTML格式模板，生成一篇关于‘{title}’的公众号文章，排版核心风格要与模板一致，字数约{word_count}字，且最终输出的HTML内容总字符数必须小于等于{char_limit}字符。模板如下：\n{format_template}"
+            prompt = f"{PromptManager.ROLE_PROMPT}\n请根据以下HTML格式模板，生成一篇关于'{title}'的公众号文章，排版核心风格要与模板一致，字数约{word_count}字，且最终输出的HTML内容总字符数必须小于等于{char_limit}字符。\n\n重要：文章标题《{title}》将由系统自动处理，请直接输出文章正文内容，不要重复标题。\n\n模板如下：\n{format_template}"
         else:
             prompt = PromptManager.article_prompt(title, word_count, char_limit)
         content = self.generate_content(prompt, model)
@@ -258,3 +267,64 @@ class GeminiService:
         except Exception as e:
             logger.error(f"HTML格式化时发生错误: {str(e)}")
             return f'<p>{content}</p>'  # fallback
+    
+    def analyze_image(self, image_path: str, prompt: str) -> Dict[str, Any]:
+        """分析图片内容"""
+        try:
+            import base64
+            
+            # 检查图片文件是否存在
+            if not os.path.exists(image_path):
+                return {
+                    "success": False,
+                    "message": f"图片文件不存在: {image_path}",
+                    "content": ""
+                }
+            
+            # 读取图片文件并转换为base64
+            with open(image_path, "rb") as image_file:
+                image_data = base64.b64encode(image_file.read()).decode('utf-8')
+            
+            # 使用Gemini的正确格式
+            client = self._get_client()
+            
+            # 构建内容列表
+            contents = [
+                prompt,
+                types.Image.from_bytes(base64.b64decode(image_data))
+            ]
+            
+            # 调用Gemini模型
+            response = client.models.generate_content(
+                model=self.image_model,
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    temperature=0.1,
+                    max_output_tokens=4000
+                )
+            )
+            
+            if response and hasattr(response, 'text'):
+                content = response.text
+                return {
+                    "success": True,
+                    "message": "图片分析成功",
+                    "content": content
+                }
+            else:
+                return {
+                    "success": False,
+                    "message": "API返回空结果",
+                    "content": ""
+                }
+                
+        except Exception as e:
+            logger.error(f"图片分析失败: {str(e)}")
+            return {
+                "success": False,
+                "message": f"图片分析失败: {str(e)}",
+                "content": ""
+            }
+
+# 创建全局服务实例
+gemini_service = GeminiService()
