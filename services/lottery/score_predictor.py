@@ -129,7 +129,7 @@ class ScorePredictor:
             except (ValueError, AttributeError):
                 # 如果失败，尝试简单格式
                 try:
-            match_time = datetime.strptime(match_time_str, '%Y-%m-%d %H:%M')
+                    match_time = datetime.strptime(match_time_str, '%Y-%m-%d %H:%M')
                 except ValueError:
                     # 如果还是失败，尝试带秒格式
                     match_time = datetime.strptime(match_time_str, '%Y-%m-%d %H:%M:%S')
