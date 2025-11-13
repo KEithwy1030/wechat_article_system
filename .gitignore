@@ -57,6 +57,8 @@ drivers/
 recent_results.json
 *.lock
 uv.lock
+data_backup.zip
+data_backup/
 
 # Docker 相关（可选，如果需要可以保留）
 # .dockerignore
