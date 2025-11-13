@@ -1,177 +1,241 @@
+# WechatBOT - 微信公众号AI自动发布系统
 
-# AIWeChatauto - 微信公众号AI内容创作与自动发布平台-已修复bug【9.06】
+基于 Flask 的微信公众号内容创作与自动发布平台，专注于竞彩足球预测文章的自动生成与发布。
 
-在线体验：https://free.yydsoi.cn/AI_wxchat_auto/index.html
+## ✨ 核心功能
 
-# 另外一个项目：.edu邮箱：https://github.com/wojiadexiaoming-copy/eduEmail-cloudflare
+### 🎯 竞彩数据管理
+- **赛程更新**：自动抓取最新竞彩赛程数据
+- **赛果更新**：定时抓取比赛结果并更新数据库
+- **快速预测**：基于 AI 模型的快速比分预测
+- **深度分析**：AI 生成深度分析文章
+- **命中率统计**：自动统计预测准确率（快速预测/深度分析分别统计）
 
-> 🚀 一站式AI写作、智能配图、极致排版、自动发布，助力新媒体人高效运营公众号！
+### 🤖 多AI模型支持
+- **Gemini**：Google Gemini 模型
+- **DeepSeek**：DeepSeek Chat 模型
+- **DashScope**：阿里云通义千问模型
+- **智谱AI**：Zhipu AI 模型
+- 支持模型切换和配置管理
 
----
-<img width="1115" height="628" alt="图片" src="https://github.com/user-attachments/assets/f8474d29-af77-4f24-8b8f-fee88abe30b8" />
+### 📝 文章生成与发布
+- **AI 文章生成**：基于 Prompt 模板生成文章
+- **Markdown 转换**：自动转换为微信格式
+- **历史记录**：文章生成历史查看和管理
+- **一键发布**：支持发布到微信公众号
 
+### 📊 数据统计与分析
+- **预测统计**：快速预测和深度分析的命中率统计
+- **赛程管理**：比赛数据可视化展示
+- **结果追踪**：比赛结果自动更新和匹配
 
-## ✨ 项目亮点
+### ⏰ 定时任务
+- **自动赛果抓取**：定时抓取昨日比赛结果
+- **准确率更新**：定时更新预测准确率统计
+- **赛程更新**：定时抓取最新赛程
+- **自动预测**：定时执行快速预测和深度分析
 
-- **多模型支持**：Gemini、DeepSeek、阿里云百炼等主流大模型一键切换
-- **智能配图**：Pexels图库/AI生图，自动适配微信防盗链
-- **极致排版**：自动内联样式，完美适配微信，支持多主题模板
-- **草稿/历史/一键发布**：全流程自动化，支持草稿管理与历史追溯
-- **本地/云端/容器化部署**：支持Windows、Mac、Docker一键部署
-- **开放API**：可对接uniapp等前端，支持二次开发
+## 🚀 快速开始
 
----
+### 环境要求
+- Python 3.11+
+- Chrome/Chromium 浏览器（用于数据抓取）
 
-## 🚀 功能总览
+### 本地部署
 
-### 🌟 一站式AI内容创作与自动发布
-
-- **多平台热点采集与智能选题**
-  - 支持抖音、快手、B站、微博、X（推特）、TikTok、YouTube、知乎等主流平台，一键抓取行业最新热点。
-  - 自动分析平台热榜，结合行业趋势，AI智能生成爆款标题，助力内容精准选题。
-    
-<img width="621" height="652" alt="wechat_2025-07-25_092906_078" src="https://github.com/user-attachments/assets/ba407b20-4eac-4174-9e32-21c13e1194cf" />
-
-- **多模型AI写作引擎**
-  - 集成 Gemini、DeepSeek、阿里云百炼等顶级大模型，随心切换，满足不同风格与场景需求。
-  - 高级 Prompt 工程，深度定制公众号内容生成，支持自定义模板、字数、风格等参数。
-
-- **智能配图与极致排版**
-  - 支持 Pexels 图库、AI生图，自动适配微信防盗链，图片风格可选，视觉效果专业。
-  - 内置多套精美排版模板，自动内联样式，完美适配微信 Webview，提升阅读体验。
-    
-<img width="605" height="539" alt="wechat_2025-07-25_092841_758" src="https://github.com/user-attachments/assets/a8cac394-9fd9-4ff7-861d-285196e0a1e4" />
-
-- **全流程自动化：草稿、历史、定时、一键发布**
-  - 草稿管理、历史追溯、定时发布、自动推送，极致提升内容生产与运营效率。
-  - 支持一键发布到微信公众号，自动处理图片上传、封面生成、摘要提取等繁琐环节。
-
-- **可视化配置与前端交互**
-  - 前端支持多平台、多行业选择，支持自定义行业输入，所见即所得。
-  - 配置管理、模型测试、历史记录、内容预览等一应俱全，操作简单易用。
-
-- **开放API与二次开发友好**
-  - 完善的接口设计，支持对接 uniapp、小程序、第三方平台，灵活扩展。
-  - 代码结构清晰，便于二次开发和个性化定制。
-
-- **安全合规与多端部署**
-  - 支持本地、云端、Docker一键部署，兼容 Windows/Mac/Linux。
-  - 重要信息本地存储，支持多平台API Key灵活配置，保障数据安全。
-
----
-
-## 🏆 为什么选择 AIWeChatauto？
-
-- **极致自动化**：从选题、写作、配图到发布，全流程一键完成，释放你的内容生产力。
-- **智能选题引擎**：行业+平台热榜智能分析，AI生成爆款标题，内容更有传播力。
-- **多模型加持**：主流大模型随心切换，写作风格百变，满足不同内容需求。
-- **专业排版与配图**：自动适配微信生态，图片、样式、模板一站式搞定。
-- **开源免费，持续更新**：完全开源，永久免费，社区活跃，功能持续进化。
-- **开发者友好**：接口开放，易于集成和二次开发，助力你的内容生态升级。
-
----
-
-## 🛠️ 适用场景
-
-- 自媒体人/内容创业者/企业新媒体团队
-- 需要高频、批量、自动化生成和发布公众号内容的场景
-- 需要AI辅助写作、智能配图、自动排版的内容生产者
-
----
-
-## 🖥️ Windows 一键安装体验
-
-无需 Python 环境，零配置一键安装！
-已提供 Windows 平台专用的 exe 安装包，下载后双击即可完成部署，无需手动安装 Python、依赖或命令行操作。
-安装完成后，桌面会自动生成启动快捷方式，点击即可直接打开 AIWeChatauto 系统，极致便捷。
-适合所有 Windows 用户，尤其是新媒体运营、内容创作者、企业团队等非技术人群。
-安装步骤：
-前往 Releases 页面 下载最新版安装包（.exe）。
-双击运行，按提示完成安装。
-桌面快捷方式启动，浏览器自动打开系统首页。
-按照页面提示完成公众号、AI平台等配置，即可开始智能创作！
-
-
----
-
-
-## ⚡ 快速体验
-
-### 1. 本地开发模式【适用于第一版】
+1. **克隆项目**
 ```bash
-git clone https://github.com/wojiadexiaoming/AIWeChatauto.git
-cd CodeStash
-python -m venv venv
-# Windows: venv\Scripts\activate
-# Mac/Linux: source venv/bin/activate
+git clone https://github.com/KEithwy1030/wechat_article_system.git
+cd wechat_article_system/AIWeChatauto
+```
+
+2. **安装依赖**
+```bash
 pip install -r requirements.txt
+```
+
+3. **配置环境变量**
+```bash
+# 复制环境变量示例文件
+cp env.example .env
+
+# 编辑 .env 文件，填入你的 API Keys
+# - GEMINI_API_KEY
+# - DEEPSEEK_API_KEY
+# - DASHSCOPE_API_KEY
+# - ZHIPU_API_KEY
+# - WECHAT_APPID
+# - WECHAT_APPSECRET
+```
+
+4. **启动应用**
+```bash
 python main.py
 ```
-- 访问 [http://127.0.0.1:5000][公网ip]（需要将公网ip添加到自己公众号的ip白名单才可以）
 
+5. **访问系统**
+- 本地访问：http://localhost:8001
 
+### Docker 部署
 
-### 2. 配置说明
-- 复制 `config/config_template.json` 为 `config.json`，填写公众号、AI平台等信息
-- 支持多模型API Key、作者信息、图片模型等灵活配置
+1. **使用 Docker Compose（推荐）**
+```bash
+cd AIWeChatauto
+docker-compose up -d
+```
 
----
+2. **或使用 Dockerfile**
+```bash
+docker build -t wechatbot-app .
+docker run -d -p 8001:8001 \
+  -e GEMINI_API_KEY=your_key \
+  -e DEEPSEEK_API_KEY=your_key \
+  -e WECHAT_APPID=your_appid \
+  -e WECHAT_APPSECRET=your_secret \
+  wechatbot-app
+```
 
-## 🧩 主要配置项说明
+详细部署文档请参考：[DOCKER_DEPLOY.md](DOCKER_DEPLOY.md)
 
-| 配置项                | 说明                         |
-|----------------------|------------------------------|
-| wechat_appid         | 公众号AppID                  |
-| wechat_appsecret     | 公众号AppSecret              |
-| gemini_api_key       | Gemini API Key               |
-| deepseek_api_key     | DeepSeek API Key             |
-| dashscope_api_key    | 阿里云百炼API Key            |
-| pexels_api_key       | Pexels图库API Key            |
-| author               | 文章作者名                   |
-| image_model          | 配图模型（gemini/pexels等）  |
-| ...                  | 更多详见 config.json         |
+### Zeabur 云部署
 
----
+1. **连接 GitHub 仓库**
+   - 在 Zeabur 创建新项目
+   - 连接 `https://github.com/KEithwy1030/wechat_article_system`
+   - 设置分支为 `master`
 
-## 💡 常见问题
+2. **配置环境变量**
+   - 在 Zeabur 项目设置中添加所有 API Keys
+   - 参考 `env.example` 文件
 
-- **图片防盗链/不显示？**  
-  已内置图片代理和微信图片上传，公众号内外均可正常显示。
-- **AI接口报错？**  
-  检查API Key、网络，或切换备用模型。
-- **草稿/发布失败？**  
-  检查公众号配置、图片素材、封面图片是否有效。
-- **IP白名单/接口权限？**  
-  需将服务器公网IP加入公众号后台白名单。
+3. **配置持久化存储（重要！）**
+   - 进入 Storage/Volumes 设置
+   - 创建持久化卷，挂载到 `/app`
+   - 确保数据在容器重启后不丢失
 
----
+4. **部署**
+   - Zeabur 会自动构建和部署
+   - 部署完成后访问提供的域名
 
-## 🏆 贡献与交流
+详细部署文档请参考：[DOCKER_DEPLOY.md](DOCKER_DEPLOY.md)
 
-- 欢迎提交 Issue、PR，或加入交流群共同完善项目！
-- ![微信图片_2025-07-13_190348_328](https://github.com/user-attachments/assets/9bb6bd37-6be1-467d-923d-c464e43640a4)
+## 📁 项目结构
 
-- 商业授权/定制开发请联系：**[ming7466464@gmail.com/1576129288@qq.com]**
+```
+AIWeChatauto/
+├── app_new.py              # Flask 主应用
+├── main.py                 # 启动入口
+├── app_config.py           # 应用配置
+├── config.json             # 配置文件（本地，不提交）
+├── requirements.txt        # Python 依赖
+├── Dockerfile              # Docker 构建文件
+├── docker-compose.yml      # Docker Compose 配置
+├── controllers/            # 控制器层
+│   ├── lottery_controller.py      # 竞彩控制器
+│   ├── article_controller.py     # 文章控制器
+│   ├── config_controller.py      # 配置控制器
+│   └── ...
+├── services/               # 服务层
+│   ├── lottery/            # 竞彩相关服务
+│   │   ├── prediction_manager.py  # 预测管理
+│   │   ├── lottery_scraper.py     # 数据抓取
+│   │   ├── score_predictor.py     # 比分预测
+│   │   └── ...
+│   ├── gemini_service.py   # Gemini AI 服务
+│   ├── deepseek_service.py # DeepSeek AI 服务
+│   ├── wechat_service.py   # 微信服务
+│   └── ...
+├── templates/              # 前端模板
+├── static/                 # 静态资源
+├── data/                   # 数据目录（数据库文件）
+└── logs/                   # 日志目录
+```
 
----
+## ⚙️ 配置说明
 
-## 📜 License
+### 环境变量配置
+
+通过环境变量或 `.env` 文件配置：
+
+| 变量名 | 说明 | 必需 |
+|--------|------|------|
+| `GEMINI_API_KEY` | Gemini API Key | 否 |
+| `DEEPSEEK_API_KEY` | DeepSeek API Key | 否 |
+| `DASHSCOPE_API_KEY` | 阿里云 DashScope API Key | 否 |
+| `ZHIPU_API_KEY` | 智谱AI API Key | 否 |
+| `WECHAT_APPID` | 微信公众号 AppID | 是 |
+| `WECHAT_APPSECRET` | 微信公众号 AppSecret | 是 |
+| `PORT` | 服务端口（默认 8001） | 否 |
+
+### 数据库
+
+系统使用 SQLite 数据库：
+- `system.db` - 主数据库（赛程、赛果数据）
+- `data/prediction_stats.db` - 预测统计
+- `data/quick_predictions.db` - 快速预测数据
+- `data/schedule_display.db` - 赛程显示数据
+
+**注意**：数据库文件需要持久化存储，否则容器重启会丢失数据。
+
+## 🔧 功能使用
+
+### 赛程管理
+1. 点击"赛程更新"按钮，系统会自动抓取最新赛程
+2. 在赛程列表中查看所有比赛
+3. 点击"快速预测"进行快速比分预测
+4. 点击"深度"进行深度分析文章生成
+
+### 文章生成
+1. 在文章生成页面选择 AI 模型
+2. 输入文章标题或使用模板
+3. 配置生成参数（字数、配图等）
+4. 点击生成，系统会自动生成文章
+5. 在历史记录中查看和管理生成的文章
+
+### 数据统计
+- 系统自动统计快速预测和深度分析的命中率
+- 在统计页面查看详细数据
+- 支持按时间范围筛选
+
+## 📚 文档
+
+- [Docker 部署指南](DOCKER_DEPLOY.md) - 详细的 Docker 和 Zeabur 部署说明
+- [数据迁移指南](DATA_MIGRATION.md) - 如何迁移本地数据到云环境
+- [数据库策略](DATABASE_STRATEGY.md) - SQLite vs MySQL 选择建议
+
+## 🛠️ 开发
+
+### 本地开发
+```bash
+# 安装依赖
+pip install -r requirements.txt
+
+# 启动开发服务器
+python main.py
+
+# 访问 http://localhost:8001
+```
+
+### 代码结构
+- **MVC 架构**：Controllers（控制器）、Services（服务层）、Templates（视图）
+- **模块化设计**：各功能模块独立，便于维护和扩展
+- **异步任务**：使用线程池处理耗时任务
+
+## ⚠️ 注意事项
+
+1. **数据持久化**：部署时必须配置持久化存储，否则数据会丢失
+2. **API 限制**：注意各 AI 平台的 API 调用限制
+3. **网络要求**：数据抓取需要稳定的网络连接
+4. **Chrome 驱动**：确保 Chrome/Chromium 浏览器可用
+
+## 📝 License
 
 MIT License
 
-> 如需商业授权或盈利性服务，请参见 [LICENSE-CN.md](LICENSE-CN.md)
+## 🤝 贡献
+
+欢迎提交 Issue 和 Pull Request！
 
 ---
 
-如需更详细的功能演示、模板预览、二次开发文档等，可随时联系作者！ 
-
-![微信图片_2025-07-13_190348_328](https://github.com/user-attachments/assets/49ec38ff-2321-4c07-953f-59d685b2f682)
-
-
-打赏支持《感谢ღ( ´･ᴗ･` )比心》：
-
-<img width="335" height="457" alt="微信图片_2025-07-13_185602_630" src="https://github.com/user-attachments/assets/8cbe8d7b-a5ba-4d3c-bc3b-dd449743e22b" /> ![微信图片_2025-07-13_185558_797](https://github.com/user-attachments/assets/fdb26494-4b49-4c01-b5cf-d415a2e5c8db)
-
-
-
-
+**项目地址**：https://github.com/KEithwy1030/wechat_article_system
