@@ -4,7 +4,7 @@ FROM python:3.11-slim
 # 设置工作目录
 WORKDIR /app
 
-# 先安装系统依赖和 Chrome（这些变化较少，可以缓存）
+# 安装系统依赖与 Chrome
 RUN apt-get update && apt-get install -y \
     wget \
     gnupg \
@@ -12,14 +12,11 @@ RUN apt-get update && apt-get install -y \
     curl \
     && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /usr/share/keyrings/google-chrome-keyring.gpg \
     && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome-keyring.gpg] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list \
-    && apt-get update \
-    && apt-get install -y google-chrome-stable \
+    && apt-get update && apt-get install -y google-chrome-stable \
     && rm -rf /var/lib/apt/lists/*
 
-# 先复制依赖文件（利用 Docker 缓存，依赖不变时不重新安装）
+# 复制依赖文件并安装
 COPY requirements.txt .
-
-# 安装 Python 依赖（使用国内镜像加速，可选）
 RUN pip install --no-cache-dir -r requirements.txt \
     && pip install --no-cache-dir schedule
 
@@ -31,20 +28,15 @@ RUN mkdir -p logs cache data backups
 
 # 设置环境变量
 ENV PYTHONUNBUFFERED=1
-ENV PORT=8001
-
-# 暴露端口（Zeabur 会通过环境变量 PORT 设置）
-EXPOSE 8001
-
-# 启动命令
-# Zeabur 生产环境：使用 gunicorn（性能更好）
-# 设置 PYTHONPATH 确保模块导入正常
 ENV PYTHONPATH=/app
+ENV PORT=8080
 
-# 验证关键文件存在
-RUN ls -la /app/app_new.py && \
-    python -c "from app_new import app; print('✅ App imported successfully')"
+# 暴露端口
+EXPOSE 8080
 
-# 启动命令 - 使用 shell 形式以支持环境变量
-CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-8001} --workers 2 --threads 4 --timeout 120 --access-logfile - --error-logfile - app_new:app"]
+# 验证应用可导入
+RUN python -c "from app_new import app; print('✅ App imported successfully')"
+
+# 使用 gunicorn 启动应用
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "2", "--threads", "4", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-", "app_new:app"]
 
