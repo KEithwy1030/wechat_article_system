@@ -42,7 +42,8 @@ def check_port_available(port, max_retries=3):
 
 if __name__ == '__main__':
     # 从环境变量读取端口（Zeabur/Docker 会设置 PORT 环境变量）
-    port = int(os.environ.get('PORT', 8001))
+    # 默认使用 8080，便于与 Zeabur 保持一致；本地开发如需其他端口可自行设置 PORT
+    port = int(os.environ.get('PORT', 8080))
     
     # 🔥 加载所有API配置到环境变量
     try:

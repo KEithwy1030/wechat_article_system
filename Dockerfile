@@ -26,17 +26,18 @@ COPY . .
 # 创建必要的目录
 RUN mkdir -p logs cache data backups
 
-# 设置环境变量
+# 设置环境变量（端口通过环境变量 PORT 控制，默认为 8080）
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
-ENV PORT=8080
 
-# 暴露端口
+# 暴露端口（文档用途，实际以 PORT 为准）
 EXPOSE 8080
 
 # 验证应用可导入
 RUN python -c "from app_new import app; print('✅ App imported successfully')"
 
 # 使用 gunicorn 启动应用
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "2", "--threads", "4", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-", "app_new:app"]
+# - 优先使用环境变量 PORT（Zeabur 会自动注入，如 8080）
+# - 本地 Docker 未设置时默认 8080，便于模拟生产环境
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-8080} --workers 2 --threads 4 --timeout 120 --access-logfile - --error-logfile - app_new:app"]
 
